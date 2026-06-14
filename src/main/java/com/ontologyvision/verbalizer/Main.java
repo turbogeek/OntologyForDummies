@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Daniel Brookshier
-package com.ontologyvision.sbvr;
+package com.ontologyvision.verbalizer;
 
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.io.FileDocumentSource;
@@ -32,9 +32,9 @@ import java.nio.file.Files;
  * produced by {@code ./gradlew :sbvr:cliJar} (the slim {@code sbvr.jar} that ships inside MSOSA has the OWL
  * API as {@code compileOnly} and cannot run standalone).
  */
-public final class SbvrMain
+public final class Main
 {
-    private SbvrMain () { }
+    private Main () { }
 
     public static void main ( final String[] args ) throws Exception
     {
@@ -52,7 +52,7 @@ public final class SbvrMain
         File out = null;
         String title = in.getName();
         boolean open = false;
-        final SbvrOptions.Builder b = SbvrOptions.builder();
+        final VerbalizerOptions.Builder b = VerbalizerOptions.builder();
 
         for ( int i = 1; i < args.length; i++ )
         {
@@ -65,7 +65,7 @@ public final class SbvrMain
                 case "--no-rdf":           b.includeRdfGlossary( false );   break;
                 case "--no-rollover":      b.rollover( false );             break;
                 case "--open":             open = true;                     break;
-                case "--color":            b.colorLevel( SbvrOptions.ColorLevel.valueOf( args[++i].toUpperCase() ) ); break;
+                case "--color":            b.colorLevel( VerbalizerOptions.ColorLevel.valueOf( args[++i].toUpperCase() ) ); break;
                 case "--title":            title = args[++i];               break;
                 default:
                     if ( a.startsWith( "-" ) ) { System.err.println( "unknown option: " + a ); System.exit( 2 ); return; }
@@ -86,7 +86,7 @@ public final class SbvrMain
                 .setMissingImportHandlingStrategy( MissingImportHandlingStrategy.SILENT );
         final OWLOntology ont = m.loadOntologyFromOntologyDocument( new FileDocumentSource( in ), cfg );
 
-        final String html = new SbvrVerbalizer().verbalizeOntology( ont, title, b.build() );
+        final String html = new OntologyVerbalizer().verbalizeOntology( ont, title, b.build() );
 
         if ( out == null )
         {

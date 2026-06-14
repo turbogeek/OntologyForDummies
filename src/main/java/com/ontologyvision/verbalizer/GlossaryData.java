@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Daniel Brookshier
-package com.ontologyvision.sbvr;
+package com.ontologyvision.verbalizer;
 
 import java.io.BufferedReader;
 import java.io.InputStream;

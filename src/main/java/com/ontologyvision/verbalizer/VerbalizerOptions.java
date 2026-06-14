@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Daniel Brookshier
-package com.ontologyvision.sbvr;
+package com.ontologyvision.verbalizer;
 
 /**
- * Immutable options controlling an {@link SbvrVerbalizer} report: which sections it emits (the SBVR
+ * Immutable options controlling an {@link OntologyVerbalizer} report: which sections it emits (the SBVR
  * verbalization, the model glossary, and the OWL / RDF reference glossaries), its initial SBVR color level,
  * and whether interactive rollover data is emitted. Build via {@link #builder()}; {@link #DEFAULT} is
  * everything on, full color.
@@ -12,7 +12,7 @@ package com.ontologyvision.sbvr;
  * (a section turned off here is simply absent); the report's embedded view-time toggles then decide what is
  * <i>visible</i> in an already-saved file.
  */
-public final class SbvrOptions
+public final class VerbalizerOptions
 {
     /** SBVR color rendering level. FULL = the four-role colors; MONO = drop color but keep the underline/
      *  italic/bold typographic distinctions; PLAIN = no color and no type treatment. */
@@ -27,9 +27,9 @@ public final class SbvrOptions
     public final ColorLevel colorLevel;
 
     /** Everything on, full color, rollover on. */
-    public static final SbvrOptions DEFAULT = builder().build();
+    public static final VerbalizerOptions DEFAULT = builder().build();
 
-    private SbvrOptions ( final Builder b )
+    private VerbalizerOptions ( final Builder b )
     {
         this.includeVerbalization = b.includeVerbalization;
         this.includeModelGlossary = b.includeModelGlossary;
@@ -41,7 +41,7 @@ public final class SbvrOptions
 
     public static Builder builder () { return new Builder(); }
 
-    /** Mutable builder for {@link SbvrOptions}. */
+    /** Mutable builder for {@link VerbalizerOptions}. */
     public static final class Builder
     {
         private boolean includeVerbalization = true;
@@ -58,6 +58,6 @@ public final class SbvrOptions
         public Builder rollover             ( final boolean v ) { this.rollover             = v; return this; }
         public Builder colorLevel           ( final ColorLevel v ) { this.colorLevel = ( v == null ? ColorLevel.FULL : v ); return this; }
 
-        public SbvrOptions build () { return new SbvrOptions( this ); }
+        public VerbalizerOptions build () { return new VerbalizerOptions( this ); }
     }
 }

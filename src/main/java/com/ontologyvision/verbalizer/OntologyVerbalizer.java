@@ -1,14 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Daniel Brookshier
-package com.ontologyvision.sbvr;
+package com.ontologyvision.verbalizer;
 
-import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.*;
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -16,7 +11,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * Verbalizes an OWL ontology (or a chosen subset of its entities) into <b>SBVR Structured English</b> — a
@@ -27,25 +21,33 @@ import java.util.TreeSet;
  * {@link OWLOntology} and it returns one self-contained HTML {@code String}. The report can include the SBVR
  * verbalization, a <b>model glossary</b> (this ontology's own terms + meanings), and the static <b>OWL</b> and
  * <b>RDF</b> reference glossaries; what it includes, its initial SBVR color level, and whether interactive
- * rollover data is emitted are controlled by {@link SbvrOptions}. The HTML also embeds (for a real browser; a
+ * rollover data is emitted are controlled by {@link VerbalizerOptions}. The HTML also embeds (for a real browser; a
  * Swing JEditorPane ignores the script) view-time toggles for colors and sections and a bottom hover panel
- * that shows each token's glossary meaning. {@link #main(String[])} is a headless CLI.
+ * that shows each token's glossary meaning. The {@link Main} class is a headless CLI.
  *
- * <p>SBVR styling: <b>terms</b> (concepts) green-underlined; <i>verbs</i> (fact types) blue-italic;
- * <b>keywords</b> orange-bold; <u>names</u> (individuals) teal double-underlined; literals plain.
+ * <p>The engine is format-agnostic: it owns entity iteration, the glossaries, the HTML/CSS shell and the
+ * shared token styling, and delegates each entity's sentences to a pluggable {@link AxiomRenderer} (today
+ * {@link SbvrRenderer}; Manchester / OSE / ACE plug in the same way). SBVR styling: <b>terms</b> (concepts)
+ * green-underlined; <i>verbs</i> (fact types) blue-italic; <b>keywords</b> orange-bold; <u>names</u>
+ * (individuals) teal double-underlined; literals plain.
  */
-public final class SbvrVerbalizer
+public final class OntologyVerbalizer
 {
-    private SbvrOptions opts = SbvrOptions.DEFAULT;
+    private VerbalizerOptions opts = VerbalizerOptions.DEFAULT;
     private OWLOntology ont;                              // the primary ontology being verbalized
     private Set<OWLOntology> lastOnts = new LinkedHashSet<>();
 
+    /** The verbalization FORMAT. SBVR today; Manchester / OSE / ACE plug in here without engine changes. */
+    private final AxiomRenderer renderer = new SbvrRenderer();
+    /** Shared primitives (styled tokens, names, escaping) the engine hands to {@link #renderer}. */
+    private final RenderContext ctx = new Ctx();
+
     // ---- public API -------------------------------------------------------------------------------------
 
-    /** Verbalizes the whole ontology with {@link SbvrOptions#DEFAULT}. */
+    /** Verbalizes the whole ontology with {@link VerbalizerOptions#DEFAULT}. */
     public String verbalizeOntology (final OWLOntology ont, final String title)
     {
-        return verbalizeOntology( ont, title, SbvrOptions.DEFAULT );
+        return verbalizeOntology( ont, title, VerbalizerOptions.DEFAULT );
     }
 
     /**
@@ -55,9 +57,9 @@ public final class SbvrVerbalizer
      * @param opts  which sections to emit, color level, rollover
      * @return a complete, self-contained HTML document
      */
-    public String verbalizeOntology (final OWLOntology ont, final String title, final SbvrOptions opts)
+    public String verbalizeOntology (final OWLOntology ont, final String title, final VerbalizerOptions opts)
     {
-        this.opts = ( opts == null ? SbvrOptions.DEFAULT : opts );
+        this.opts = ( opts == null ? VerbalizerOptions.DEFAULT : opts );
         this.ont = ont;
         this.lastOnts = ont.getImportsClosure();
 
@@ -74,10 +76,10 @@ public final class SbvrVerbalizer
         return htmlDoc( title, ontologyIri( ont ), subtitle, body, classes, objProps, dataProps, individuals );
     }
 
-    /** Verbalizes only the given entities with {@link SbvrOptions#DEFAULT}. */
+    /** Verbalizes only the given entities with {@link VerbalizerOptions#DEFAULT}. */
     public String verbalizeEntities (final OWLOntology ont, final Set<OWLEntity> entities, final String title)
     {
-        return verbalizeEntities( ont, entities, title, SbvrOptions.DEFAULT );
+        return verbalizeEntities( ont, entities, title, VerbalizerOptions.DEFAULT );
     }
 
     /**
@@ -89,9 +91,9 @@ public final class SbvrVerbalizer
      * @return a complete, self-contained HTML document
      */
     public String verbalizeEntities (final OWLOntology ont, final Set<OWLEntity> entities, final String title,
-                                     final SbvrOptions opts)
+                                     final VerbalizerOptions opts)
     {
-        this.opts = ( opts == null ? SbvrOptions.DEFAULT : opts );
+        this.opts = ( opts == null ? VerbalizerOptions.DEFAULT : opts );
         this.ont = ont;
         this.lastOnts = ont.getImportsClosure();
 
@@ -153,7 +155,8 @@ public final class SbvrVerbalizer
         if ( html != null && !html.isEmpty() ) out.append( "<div class=\"" ).append( cls ).append( "\">" ).append( html ).append( "</div>" );
     }
 
-    // ---- verbalization sections (logic preserved; sentences are sorted for deterministic output) --------
+    // ---- verbalization sections: the engine owns iteration, skip rules and section assembly; the renderer
+    //      supplies each entity's sentences + the format's headings/kinds. --------------------------------
 
     private void verbalizeClassesSection (final OWLOntology ont, final List<OWLClass> classes,
                                           final StringBuilder out)
@@ -162,51 +165,12 @@ public final class SbvrVerbalizer
         for ( final OWLClass c : classes )
         {
             if ( c.isOWLThing() || c.isOWLNothing() ) continue;
-            final List<String> sentences = new ArrayList<>();
-
-            for ( final OWLSubClassOfAxiom ax : ont.getSubClassAxiomsForSubClass( c ) )
-            {
-                final OWLClassExpression sup = ax.getSuperClass();
-                if ( sup.isOWLThing() ) continue;
-                if ( !sup.isAnonymous() )
-                {
-                    final OWLClass sc = sup.asOWLClass();
-                    sentences.add( kw( "Each" ) + " " + term( c ) + " " + kw( "is " + aAn( label( sc ) ) ) + " "
-                            + term( sc ) + "." );
-                }
-                else
-                {
-                    sentences.add( kw( "Each" ) + " " + term( c ) + " " + render( sup ) + "." );
-                }
-            }
-            for ( final OWLEquivalentClassesAxiom ax : ont.getEquivalentClassesAxioms( c ) )
-            {
-                for ( final OWLClassExpression other : ax.getClassExpressions() )
-                {
-                    if ( other.equals( c ) ) continue;
-                    sentences.add( term( c ) + " " + kw( "is defined as" ) + " " + render( other ) + "." );
-                }
-            }
-            final Set<OWLClass> disjoints = new TreeSet<>();
-            for ( final OWLDisjointClassesAxiom ax : ont.getDisjointClassesAxioms( c ) )
-            {
-                for ( final OWLClassExpression ce : ax.getClassExpressions() )
-                {
-                    if ( !ce.isAnonymous() && !ce.equals( c ) ) disjoints.add( ce.asOWLClass() );
-                }
-            }
-            if ( !disjoints.isEmpty() )
-            {
-                final List<String> ts = new ArrayList<>();
-                for ( final OWLClass d : disjoints ) ts.add( term( d ) );
-                sentences.add( kw( "No" ) + " " + term( c ) + " " + kw( "is a" ) + " " + join( ts, " or " ) + "." );
-            }
-
+            final List<String> sentences = renderer.classSentences( c, ctx );
             final String comment = comment( ont, c );
             if ( sentences.isEmpty() && comment == null ) continue;   // nothing to say about a bare class
-            blocks.add( entityBlock( "concept", term( c ), sentences, comment ) );
+            blocks.add( entityBlock( renderer.classKind(), term( c ), sentences, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( "Vocabulary &mdash; Concepts (Classes)", blocks, out );
+        if ( !blocks.isEmpty() ) section( renderer.classesHeading(), blocks, out );
     }
 
     private void verbalizeObjectPropsSection (final OWLOntology ont, final List<OWLObjectProperty> props,
@@ -216,46 +180,12 @@ public final class SbvrVerbalizer
         for ( final OWLObjectProperty p : props )
         {
             if ( p.isOWLTopObjectProperty() || p.isOWLBottomObjectProperty() ) continue;
-            final List<String> s = new ArrayList<>();
-            final List<String> domains = new ArrayList<>();
-            for ( final OWLObjectPropertyDomainAxiom ax : ont.getObjectPropertyDomainAxioms( p ) )
-                if ( !ax.getDomain().isOWLThing() ) domains.add( render( ax.getDomain() ) );
-            final List<String> ranges = new ArrayList<>();
-            for ( final OWLObjectPropertyRangeAxiom ax : ont.getObjectPropertyRangeAxioms( p ) )
-                if ( !ax.getRange().isOWLThing() ) ranges.add( render( ax.getRange() ) );
-            if ( !domains.isEmpty() && !ranges.isEmpty() )
-                s.add( kw( "A" ) + " " + join( domains, " or " ) + " " + verb( p ) + " " + kw( "a" ) + " "
-                        + join( ranges, " or " ) + "." );
-            else if ( !domains.isEmpty() )
-                s.add( kw( "Anything that" ) + " " + verb( p ) + " something " + kw( "is a" ) + " "
-                        + join( domains, " or " ) + "." );
-            else if ( !ranges.isEmpty() )
-                s.add( kw( "Anything" ) + " " + verb( p ) + " " + kw( "is a" ) + " " + join( ranges, " or " ) + "." );
-
-            for ( final OWLSubObjectPropertyOfAxiom ax : ont.getObjectSubPropertyAxiomsForSubProperty( p ) )
-                if ( !ax.getSuperProperty().isAnonymous() )
-                    s.add( verb( p ) + " " + kw( "is a kind of" ) + " " + verb( ax.getSuperProperty().asOWLObjectProperty() ) + "." );
-            for ( final OWLInverseObjectPropertiesAxiom ax : ont.getInverseObjectPropertyAxioms( p ) )
-                for ( final OWLObjectPropertyExpression inv : ax.getPropertiesMinus( p ) )
-                    if ( !inv.isAnonymous() )
-                        s.add( verb( p ) + " " + kw( "is the inverse of" ) + " " + verb( inv.asOWLObjectProperty() ) + "." );
-
-            final List<String> chars = new ArrayList<>();
-            if ( !ont.getFunctionalObjectPropertyAxioms( p ).isEmpty() )         chars.add( "functional" );
-            if ( !ont.getInverseFunctionalObjectPropertyAxioms( p ).isEmpty() )  chars.add( "inverse-functional" );
-            if ( !ont.getTransitiveObjectPropertyAxioms( p ).isEmpty() )         chars.add( "transitive" );
-            if ( !ont.getSymmetricObjectPropertyAxioms( p ).isEmpty() )          chars.add( "symmetric" );
-            if ( !ont.getAsymmetricObjectPropertyAxioms( p ).isEmpty() )         chars.add( "asymmetric" );
-            if ( !ont.getReflexiveObjectPropertyAxioms( p ).isEmpty() )          chars.add( "reflexive" );
-            if ( !ont.getIrreflexiveObjectPropertyAxioms( p ).isEmpty() )        chars.add( "irreflexive" );
-            if ( !chars.isEmpty() )
-                s.add( kw( "The relationship" ) + " " + verb( p ) + " " + kw( "is" ) + " " + kw( join( chars, " and " ) ) + "." );
-
+            final List<String> s = renderer.objectPropertySentences( p, ctx );
             final String comment = comment( ont, p );
             if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( "fact type", verb( p ), s, comment ) );
+            blocks.add( entityBlock( renderer.objectPropertyKind(), verb( p ), s, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( "Fact Types &mdash; Relationships (Object Properties)", blocks, out );
+        if ( !blocks.isEmpty() ) section( renderer.objectPropertiesHeading(), blocks, out );
     }
 
     private void verbalizeDataPropsSection (final OWLOntology ont, final List<OWLDataProperty> props,
@@ -265,28 +195,12 @@ public final class SbvrVerbalizer
         for ( final OWLDataProperty p : props )
         {
             if ( p.isOWLTopDataProperty() || p.isOWLBottomDataProperty() ) continue;
-            final List<String> s = new ArrayList<>();
-            final List<String> domains = new ArrayList<>();
-            for ( final OWLDataPropertyDomainAxiom ax : ont.getDataPropertyDomainAxioms( p ) )
-                if ( !ax.getDomain().isOWLThing() ) domains.add( render( ax.getDomain() ) );
-            final List<String> ranges = new ArrayList<>();
-            for ( final OWLDataPropertyRangeAxiom ax : ont.getDataPropertyRangeAxioms( p ) )
-                ranges.add( dataRange( ax.getRange() ) );
-            if ( !domains.isEmpty() && !ranges.isEmpty() )
-                s.add( kw( "A" ) + " " + join( domains, " or " ) + " " + verb( p ) + " " + kw( "a value of type" ) + " "
-                        + join( ranges, " or " ) + "." );
-            else if ( !domains.isEmpty() )
-                s.add( kw( "Anything that has a" ) + " " + verb( p ) + " " + kw( "is a" ) + " " + join( domains, " or " ) + "." );
-            else if ( !ranges.isEmpty() )
-                s.add( kw( "The value of" ) + " " + verb( p ) + " " + kw( "is of type" ) + " " + join( ranges, " or " ) + "." );
-            if ( !ont.getFunctionalDataPropertyAxioms( p ).isEmpty() )
-                s.add( kw( "The attribute" ) + " " + verb( p ) + " " + kw( "is single-valued (functional)" ) + "." );
-
+            final List<String> s = renderer.dataPropertySentences( p, ctx );
             final String comment = comment( ont, p );
             if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( "attribute", verb( p ), s, comment ) );
+            blocks.add( entityBlock( renderer.dataPropertyKind(), verb( p ), s, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( "Attributes (Data Properties)", blocks, out );
+        if ( !blocks.isEmpty() ) section( renderer.dataPropertiesHeading(), blocks, out );
     }
 
     private void verbalizeIndividualsSection (final OWLOntology ont, final List<OWLNamedIndividual> inds,
@@ -295,29 +209,12 @@ public final class SbvrVerbalizer
         final List<String> blocks = new ArrayList<>();
         for ( final OWLNamedIndividual i : inds )
         {
-            final List<String> s = new ArrayList<>();
-            for ( final OWLClassAssertionAxiom ax : ont.getClassAssertionAxioms( i ) )
-            {
-                final OWLClassExpression ce = ax.getClassExpression();
-                if ( ce.isOWLThing() ) continue;
-                if ( !ce.isAnonymous() )
-                    s.add( name( i ) + " " + kw( "is " + aAn( label( ce.asOWLClass() ) ) ) + " " + term( ce.asOWLClass() ) + "." );
-                else
-                    s.add( name( i ) + " " + kw( "is a" ) + " " + render( ce ) + "." );
-            }
-            for ( final OWLObjectPropertyAssertionAxiom ax : ont.getObjectPropertyAssertionAxioms( i ) )
-                if ( !ax.getProperty().isAnonymous() && !ax.getObject().isAnonymous() )
-                    s.add( name( i ) + " " + verb( ax.getProperty().asOWLObjectProperty() ) + " "
-                            + name( ax.getObject().asOWLNamedIndividual() ) + "." );
-            for ( final OWLDataPropertyAssertionAxiom ax : ont.getDataPropertyAssertionAxioms( i ) )
-                if ( !ax.getProperty().isAnonymous() )
-                    s.add( name( i ) + " " + verb( ax.getProperty().asOWLDataProperty() ) + " " + lit( ax.getObject() ) + "." );
-
+            final List<String> s = renderer.individualSentences( i, ctx );
             final String comment = comment( ont, i );
             if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( "instance", name( i ), s, comment ) );
+            blocks.add( entityBlock( renderer.individualKind(), name( i ), s, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( "Individuals (Instances)", blocks, out );
+        if ( !blocks.isEmpty() ) section( renderer.individualsHeading(), blocks, out );
     }
 
     // ---- model glossary + reference glossaries ----------------------------------------------------------
@@ -363,66 +260,8 @@ public final class SbvrVerbalizer
                 + rows + "</table>";
     }
 
-    // ---- class-expression rendering (SBVR reading of restrictions etc.) ---------------------------------
-
-    private String render (final OWLClassExpression ce) { return ce.accept( EXPR ); }
-
-    private final OWLClassExpressionVisitorEx<String> EXPR = new OWLClassExpressionVisitorEx<String>()
-    {
-        @Override public String visit (final OWLClass ce) { return ce.isOWLThing() ? kw( "thing" ) : term( ce ); }
-        @Override public String visit (final OWLObjectSomeValuesFrom ce )
-        { return verbObj( ce.getProperty() ) + " " + kw( "at least one" ) + " " + render( ce.getFiller() ); }
-        @Override public String visit (final OWLObjectAllValuesFrom ce )
-        { return verbObj( ce.getProperty() ) + " " + kw( "only" ) + " " + render( ce.getFiller() ); }
-        @Override public String visit (final OWLObjectExactCardinality ce )
-        { return verbObj( ce.getProperty() ) + " " + kw( "exactly " + ce.getCardinality() ) + " " + render( ce.getFiller() ); }
-        @Override public String visit (final OWLObjectMinCardinality ce )
-        { return verbObj( ce.getProperty() ) + " " + kw( "at least " + ce.getCardinality() ) + " " + render( ce.getFiller() ); }
-        @Override public String visit (final OWLObjectMaxCardinality ce )
-        { return verbObj( ce.getProperty() ) + " " + kw( "at most " + ce.getCardinality() ) + " " + render( ce.getFiller() ); }
-        @Override public String visit (final OWLObjectHasValue ce )
-        { return verbObj( ce.getProperty() ) + " " + ( ce.getFiller().isNamed()
-                ? name( ce.getFiller().asOWLNamedIndividual() ) : kw( "a particular individual" ) ); }
-        @Override public String visit (final OWLObjectIntersectionOf ce ) { return joinExpr( ce.getOperands(), " and " ); }
-        @Override public String visit (final OWLObjectUnionOf ce ) { return joinExpr( ce.getOperands(), " or " ); }
-        @Override public String visit (final OWLObjectComplementOf ce ) { return kw( "not" ) + " " + render( ce.getOperand() ); }
-        @Override public String visit (final OWLObjectOneOf ce )
-        {
-            final List<String> ns = new ArrayList<>();
-            for ( final OWLIndividual ind : ce.getIndividuals() )
-                ns.add( ind.isNamed() ? name( ind.asOWLNamedIndividual() ) : "an individual" );
-            return kw( "one of" ) + " " + join( ns, ", " );
-        }
-        @Override public String visit (final OWLObjectHasSelf ce ) { return verbObj( ce.getProperty() ) + " " + kw( "itself" ); }
-        @Override public String visit (final OWLDataSomeValuesFrom ce )
-        { return verbData( ce.getProperty() ) + " " + kw( "some" ) + " " + dataRange( ce.getFiller() ); }
-        @Override public String visit (final OWLDataAllValuesFrom ce )
-        { return verbData( ce.getProperty() ) + " " + kw( "only" ) + " " + dataRange( ce.getFiller() ); }
-        @Override public String visit (final OWLDataExactCardinality ce )
-        { return verbData( ce.getProperty() ) + " " + kw( "exactly " + ce.getCardinality() ) + " value(s)"; }
-        @Override public String visit (final OWLDataMinCardinality ce )
-        { return verbData( ce.getProperty() ) + " " + kw( "at least " + ce.getCardinality() ) + " value(s)"; }
-        @Override public String visit (final OWLDataMaxCardinality ce )
-        { return verbData( ce.getProperty() ) + " " + kw( "at most " + ce.getCardinality() ) + " value(s)"; }
-        @Override public String visit (final OWLDataHasValue ce ) { return verbData( ce.getProperty() ) + " " + lit( ce.getFiller() ); }
-    };
-
-    private String joinExpr (final Set<OWLClassExpression> ops, final String sep)
-    {
-        final List<String> parts = new ArrayList<>();
-        for ( final OWLClassExpression op : ops ) parts.add( render( op ) );
-        parts.sort( null );                                           // deterministic operand order
-        return join( parts, sep );
-    }
-
-    private String verbObj (final OWLObjectPropertyExpression pe)
-    { return pe.isAnonymous() ? verbRaw( "(inverse property)" ) : verb( pe.asOWLObjectProperty() ); }
-    private String verbData (final OWLDataPropertyExpression pe)
-    { return pe.isAnonymous() ? verbRaw( "(data property)" ) : verb( (OWLDataProperty) pe ); }
-    private String dataRange (final OWLDataRange dr)
-    { return dr.isOWLDatatype() ? term( shortForm( dr.asOWLDatatype().getIRI() ) ) : esc( dr.toString() ); }
-
-    // ---- styled spans (with data-gloss rollover when enabled) -------------------------------------------
+    // ---- styled spans (with data-gloss rollover when enabled) — the shared token vocabulary every format
+    //      emits through the RenderContext (see SbvrRenderer for the SBVR class-expression reading) --------
 
     private String role (final String cls, final String glossPlain, final String displayHtml)
     {
@@ -632,8 +471,8 @@ public final class SbvrVerbalizer
                             final List<OWLClass> classes, final List<OWLObjectProperty> objProps,
                             final List<OWLDataProperty> dataProps, final List<OWLNamedIndividual> inds)
     {
-        final String bodyClass = ( opts.colorLevel == SbvrOptions.ColorLevel.MONO ) ? "mono"
-                : ( opts.colorLevel == SbvrOptions.ColorLevel.PLAIN ) ? "no-color" : "";
+        final String bodyClass = ( opts.colorLevel == VerbalizerOptions.ColorLevel.MONO ) ? "mono"
+                : ( opts.colorLevel == VerbalizerOptions.ColorLevel.PLAIN ) ? "no-color" : "";
         return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + esc( title ) + " &mdash; SBVR</title>"
                 + "<style>" + css() + "</style></head>"
                 + "<body class=\"" + bodyClass + "\"><div class=\"wrap\">"
@@ -816,30 +655,24 @@ public final class SbvrVerbalizer
         return esc( s ).replace( '\n', ' ' ).replace( '\r', ' ' ).replace( '\t', ' ' );
     }
 
-    // ---- headless entry point (no MagicDraw needed) -----------------------------------------------------
+    // ---- RenderContext: the engine's shared primitives, handed to the AxiomRenderer ---------------------
 
-    /** Headless CLI: {@code java … SbvrVerbalizer <input.owl> [output.html]} — used to test with no MSOSA. */
-    public static void main (final String[] args) throws Exception
+    /** Adapter exposing the engine's shared primitives to an {@link AxiomRenderer} without leaking internals;
+     *  one instance ({@link #ctx}) is reused across the whole report. (The headless CLI is {@link Main}.) */
+    private final class Ctx implements RenderContext
     {
-        if ( args.length < 1 )
-        {
-            System.err.println( "usage: SbvrVerbalizer <input.owl> [output.html]" );
-            System.exit( 2 );
-        }
-        final File in = new File( args[0] );
-        final OWLOntologyManager m = OWLManager.createOWLOntologyManager();
-        final OWLOntology ont = m.loadOntologyFromOntologyDocument( in );
-        final SbvrVerbalizer v = new SbvrVerbalizer();
-        v.lastOnts = m.getOntologies();
-        final String html = v.verbalizeOntology( ont, in.getName() );
-        if ( args.length > 1 )
-        {
-            Files.write( Paths.get( args[1] ), html.getBytes( StandardCharsets.UTF_8 ) );
-            System.out.println( "Wrote " + html.length() + " bytes to " + args[1] );
-        }
-        else
-        {
-            System.out.println( html );
-        }
+        @Override public OWLOntology ontology () { return ont; }
+        @Override public String term (final OWLEntity e) { return OntologyVerbalizer.this.term( e ); }
+        @Override public String term (final String s) { return OntologyVerbalizer.this.term( s ); }
+        @Override public String verb (final OWLEntity e) { return OntologyVerbalizer.this.verb( e ); }
+        @Override public String verbRaw (final String s) { return OntologyVerbalizer.this.verbRaw( s ); }
+        @Override public String name (final OWLEntity e) { return OntologyVerbalizer.this.name( e ); }
+        @Override public String kw (final String s) { return OntologyVerbalizer.this.kw( s ); }
+        @Override public String lit (final OWLLiteral l) { return OntologyVerbalizer.this.lit( l ); }
+        @Override public String label (final OWLEntity e) { return OntologyVerbalizer.this.label( e ); }
+        @Override public String esc (final String s) { return OntologyVerbalizer.esc( s ); }
+        @Override public String shortForm (final IRI iri) { return OntologyVerbalizer.shortForm( iri ); }
+        @Override public String join (final List<String> parts, final String sep) { return OntologyVerbalizer.join( parts, sep ); }
+        @Override public String aAn (final String word) { return OntologyVerbalizer.aAn( word ); }
     }
 }

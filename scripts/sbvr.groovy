@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Daniel Brookshier
 //
 // sbvr.groovy — generate an SBVR Structured-English HTML "translation" of an OWL ontology. This is the Groovy
-// equivalent of com.ontologyvision.sbvr.SbvrMain: same arguments, same output.
+// equivalent of com.ontologyvision.verbalizer.Main: same arguments, same output.
 //
 // It assumes the required jars are on the classpath — the Ontology-to-English jar plus the OWL API and its
 // runtime closure. The easiest way is the self-contained CLI jar (OWL API bundled):
@@ -15,8 +15,8 @@
 //   java -cp "groovy-all.jar:build/libs/ontology-to-english-<ver>-cli.jar" \
 //        groovy.ui.GroovyMain scripts/sbvr.groovy pizza.owl
 
-import com.ontologyvision.sbvr.SbvrVerbalizer
-import com.ontologyvision.sbvr.SbvrOptions
+import com.ontologyvision.verbalizer.OntologyVerbalizer
+import com.ontologyvision.verbalizer.VerbalizerOptions
 import org.semanticweb.owlapi.apibinding.OWLManager
 import org.semanticweb.owlapi.io.FileDocumentSource
 import org.semanticweb.owlapi.model.MissingImportHandlingStrategy
@@ -33,7 +33,7 @@ File input = new File( args[0] )
 File output = null
 String title = input.name
 boolean open = false
-SbvrOptions.Builder b = SbvrOptions.builder()
+VerbalizerOptions.Builder b = VerbalizerOptions.builder()
 
 for ( int i = 1; i < args.length; i++ ) {
     switch ( args[i] ) {
@@ -43,7 +43,7 @@ for ( int i = 1; i < args.length; i++ ) {
         case '--no-rdf':           b.includeRdfGlossary( false );   break
         case '--no-rollover':      b.rollover( false );             break
         case '--open':             open = true;                     break
-        case '--color':            b.colorLevel( SbvrOptions.ColorLevel.valueOf( args[++i].toUpperCase() ) ); break
+        case '--color':            b.colorLevel( VerbalizerOptions.ColorLevel.valueOf( args[++i].toUpperCase() ) ); break
         case '--title':            title = args[++i];               break
         default:
             if ( args[i].startsWith( '-' ) ) { System.err.println "unknown option: ${args[i]}"; return }
@@ -58,7 +58,7 @@ def mgr = OWLManager.createOWLOntologyManager()
 def cfg = new OWLOntologyLoaderConfiguration().setMissingImportHandlingStrategy( MissingImportHandlingStrategy.SILENT )
 def ont = mgr.loadOntologyFromOntologyDocument( new FileDocumentSource( input ), cfg )
 
-String html = new SbvrVerbalizer().verbalizeOntology( ont, title, b.build() )
+String html = new OntologyVerbalizer().verbalizeOntology( ont, title, b.build() )
 
 if ( output == null ) {
     String base = input.name.replaceFirst( /\.[^.]+$/, '' )

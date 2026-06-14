@@ -24,7 +24,7 @@ Or build one portable file you can run anywhere — the OWL API is bundled insid
 
 ```bash
 ./gradlew cliJar
-java -jar build/libs/ontology-to-english-0.1.0-cli.jar my-ontology.owl --open
+java -jar build/libs/ontology-to-english-0.2.0-cli.jar my-ontology.owl --open
 ```
 
 Options:
@@ -49,9 +49,9 @@ It's a small library too, with a single runtime dependency (the OWL API):
 ```java
 OWLOntology ont = OWLManager.createOWLOntologyManager()
         .loadOntologyFromOntologyDocument(new File("pizza.owl"));
-String html = new SbvrVerbalizer().verbalizeOntology(ont, "Pizza");   // full report
+String html = new OntologyVerbalizer().verbalizeOntology(ont, "Pizza");   // full report
 // or just the entities you care about:
-String some = new SbvrVerbalizer().verbalizeEntities(ont, entities, "Selection");
+String some = new OntologyVerbalizer().verbalizeEntities(ont, entities, "Selection");
 ```
 
 ## Help the Ontology Muggles

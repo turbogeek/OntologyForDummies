@@ -14,7 +14,7 @@ plugins {
 }
 
 group   = 'com.ontologyvision'
-version = '0.1.0'
+version = '0.2.0'
 
 repositories {
     mavenCentral()
@@ -38,7 +38,7 @@ java {
 }
 
 application {
-    mainClass = 'com.ontologyvision.sbvr.SbvrMain'
+    mainClass = 'com.ontologyvision.verbalizer.Main'
 }
 
 test {
@@ -51,7 +51,7 @@ tasks.register('cliJar', Jar) {
     group = 'distribution'
     description = 'Self-contained runnable CLI (OWL API bundled).'
     archiveClassifier = 'cli'
-    manifest { attributes 'Main-Class': 'com.ontologyvision.sbvr.SbvrMain' }
+    manifest { attributes 'Main-Class': 'com.ontologyvision.verbalizer.Main' }
     from sourceSets.main.output
     dependsOn configurations.runtimeClasspath
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
