@@ -8,6 +8,7 @@ import org.semanticweb.owlapi.model.MissingImportHandlingStrategy;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
+import org.semanticweb.owlapi.util.AutoIRIMapper;
 
 import java.awt.Desktop;
 import java.io.File;
@@ -90,6 +91,14 @@ public final class Main
 
         // Tolerate unresolved imports (same posture as the unit tests), so a self-contained file still verbalizes.
         final OWLOntologyManager m = OWLManager.createOWLOntologyManager();
+        // Resolve imports from sibling files or a catalog-v001.xml in the same folder, so multi-file ontologies
+        // (e.g. the fetched IOF Core + BFO) verbalize WITH their superclasses; anything still missing is tolerated.
+        final File dir = in.getAbsoluteFile().getParentFile();
+        if ( dir != null && dir.isDirectory() )
+        {
+            try { m.getIRIMappers().add( new AutoIRIMapper( dir, false ) ); }
+            catch ( final Throwable ignore ) { /* best-effort sibling/catalog import resolution */ }
+        }
         final OWLOntologyLoaderConfiguration cfg = new OWLOntologyLoaderConfiguration()
                 .setMissingImportHandlingStrategy( MissingImportHandlingStrategy.SILENT );
         final OWLOntology ont = m.loadOntologyFromOntologyDocument( new FileDocumentSource( in ), cfg );

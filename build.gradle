@@ -68,6 +68,53 @@ tasks.register('cliJar', Jar) {
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
 }
 
+// Fetch a REAL systems-engineering ontology on demand — the Industrial Ontology Foundry (IOF) Core plus its
+// BFO 2020 foundation — as an example to verbalize "for muggles". These third-party files are NOT committed
+// (examples/iof/ is git-ignored); they keep their own licenses (IOF = MIT, BFO = CC-BY 4.0). Run:
+//   ./gradlew fetchIofExample
+//   java -jar build/libs/ontology-to-english-<ver>-cli.jar examples/iof/Core.rdf --rosetta --open
+tasks.register('fetchIofExample') {
+    group = 'examples'
+    description = 'Download the real IOF Core + BFO ontologies into examples/iof/ (IOF = MIT, BFO = CC-BY 4.0).'
+    doLast {
+        final File outDir = file("$projectDir/examples/iof")
+        outDir.mkdirs()
+        final Closure grab = { String url, String name ->
+            logger.lifecycle("  downloading ${name}")
+            ant.get( src: url, dest: new File(outDir, name), verbose: false, usetimestamp: true )
+        }
+        logger.lifecycle('Fetching real systems-engineering ontologies into examples/iof/ …')
+        // IOF Core + its annotation vocabulary (MIT), and BFO 2020 core (CC-BY 4.0). All https raw URLs.
+        grab('https://raw.githubusercontent.com/iofoundry/ontology/master/core/Core.rdf', 'Core.rdf')
+        grab('https://raw.githubusercontent.com/iofoundry/ontology/master/core/meta/AnnotationVocabulary.rdf', 'AnnotationVocabulary.rdf')
+        grab('https://raw.githubusercontent.com/BFO-ontology/BFO-2020/master/21838-2/owl/bfo-core.owl', 'bfo-core.owl')
+
+        // An OASIS XML catalog maps each owl:imports IRI to the local file, so the CLI's AutoIRIMapper resolves
+        // the whole closure offline (Core imports the BFO PURL and the AnnotationVocabulary IRI — bridged here).
+        new File(outDir, 'catalog-v001.xml').text =
+'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<catalog prefer="public" xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
+    <uri name="http://purl.obolibrary.org/obo/bfo/2020/bfo.owl" uri="bfo-core.owl"/>
+    <uri name="https://spec.industrialontologies.org/ontology/core/meta/AnnotationVocabulary/" uri="AnnotationVocabulary.rdf"/>
+    <uri name="https://spec.industrialontologies.org/ontology/core/Core/" uri="Core.rdf"/>
+</catalog>
+'''
+        // Attribution required by BFO's CC-BY 4.0 license (and a courtesy note for IOF's MIT files).
+        new File(outDir, 'NOTICE.md').text =
+"""# Third-party ontologies (fetched on demand — NOT part of this MIT repository)
+
+`./gradlew fetchIofExample` downloaded these for use as examples. They keep their own licenses:
+
+- **IOF Core** (`Core.rdf`, `AnnotationVocabulary.rdf`) — Industrial Ontology Foundry.
+  License: MIT. Source: https://github.com/iofoundry/ontology
+- **Basic Formal Ontology (BFO) 2020** (`bfo-core.owl`) — B. Smith et al.
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0).
+  Source: https://github.com/BFO-ontology/BFO-2020 — keep this attribution when you redistribute.
+"""
+        logger.lifecycle("Done. Try:  java -jar build/libs/ontology-to-english-${version}-cli.jar examples/iof/Core.rdf --rosetta --open")
+    }
+}
+
 // Publish the library so other projects (e.g. the VOM MagicDraw plugin) can depend on it as
 // `com.ontologyvision:ontology-to-english:<version>` instead of vendoring a copy.
 //   ./gradlew publishToMavenLocal       -> ~/.m2/repository  (works offline, no credentials)

@@ -16,3 +16,6 @@ build/
 
 # generated reports
 *-sbvr.html
+
+# third-party example ontologies fetched on demand (./gradlew fetchIofExample)
+/examples/iof/

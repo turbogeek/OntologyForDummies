@@ -1,0 +1,215 @@
+# Systems Engineering 101 — a tiny example ontology for OntologyForDummies.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Daniel Brookshier
+#
+# Hand-built to read well "for muggles": every class and property carries a plain-English
+# rdfs:label and rdfs:comment, and it exercises the things the verbalizer shows off —
+# subclassing, existential ("at least one"/some) and universal ("only") restrictions,
+# cardinality, disjointness, inverse/symmetric/transitive properties, and a few individuals.
+#
+# Verbalize it:   java -jar build/libs/ontology-to-english-<ver>-cli.jar examples/se-101.ttl --open
+# Rosetta view:   …  examples/se-101.ttl --rosetta --open
+# Validate it:    …  examples/se-101.ttl --validate     (consistent; no unsatisfiable classes)
+
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix se:   <https://ontologyfordummies.example/se-101#> .
+@base         <https://ontologyfordummies.example/se-101> .
+
+<https://ontologyfordummies.example/se-101> a owl:Ontology ;
+    rdfs:label   "Systems Engineering 101" ;
+    rdfs:comment "A small, friendly systems-engineering ontology used as an example for the Ontology-to-English verbalizer. MIT licensed." ;
+    owl:versionInfo "1.0" .
+
+#################################################################
+#    Concepts (Classes)
+#################################################################
+
+se:System a owl:Class ;
+    rdfs:label   "System" ;
+    rdfs:comment "A set of interacting parts that together do something no single part can do on its own." .
+
+se:Subsystem a owl:Class ;
+    rdfs:subClassOf se:System ;
+    rdfs:label   "Subsystem" ;
+    rdfs:comment "A system that is itself a part of a larger system." .
+
+se:Component a owl:Class ;
+    rdfs:label   "Component" ;
+    rdfs:comment "A single part of a system that we do not break down any further here." .
+
+se:Interface a owl:Class ;
+    rdfs:label   "Interface" ;
+    rdfs:comment "A boundary across which two parts connect and exchange matter, energy, or information." .
+
+se:Function a owl:Class ;
+    rdfs:label   "Function" ;
+    rdfs:comment "Something a system is meant to do — an action or behavior, not a thing." .
+
+se:Requirement a owl:Class ;
+    rdfs:label   "Requirement" ;
+    rdfs:comment "A statement of something the system must do, or a quality it must have." .
+
+se:Stakeholder a owl:Class ;
+    rdfs:label   "Stakeholder" ;
+    rdfs:comment "A person or organization with an interest in the system." .
+
+se:VerificationActivity a owl:Class ;
+    rdfs:label   "Verification Activity" ;
+    rdfs:comment "Work done — a test, analysis, inspection, or demonstration — to show a requirement is met." .
+
+# A few things are kinds-apart: a function is not a part, and a requirement is not a part.
+se:Function    owl:disjointWith se:Component .
+se:Requirement owl:disjointWith se:Component .
+
+#################################################################
+#    Relationships (Object Properties)
+#################################################################
+
+se:hasPart a owl:ObjectProperty , owl:TransitiveProperty ;
+    rdfs:label   "has part" ;
+    rdfs:domain  se:System ;
+    rdfs:comment "Relates a system to something it contains. Transitive: a part of a part is a part." .
+
+se:hasComponent a owl:ObjectProperty ;
+    rdfs:subPropertyOf se:hasPart ;
+    rdfs:label   "has component" ;
+    rdfs:domain  se:System ;
+    rdfs:range   se:Component ;
+    rdfs:comment "Relates a system to one of its components." .
+
+se:hasSubsystem a owl:ObjectProperty ;
+    rdfs:subPropertyOf se:hasPart ;
+    rdfs:label   "has subsystem" ;
+    rdfs:domain  se:System ;
+    rdfs:range   se:Subsystem ;
+    rdfs:comment "Relates a system to one of its subsystems." .
+
+se:performsFunction a owl:ObjectProperty ;
+    rdfs:label   "performs function" ;
+    rdfs:domain  se:System ;
+    rdfs:range   se:Function ;
+    rdfs:comment "Relates a system to a function it carries out." .
+
+se:realizes a owl:ObjectProperty ;
+    owl:inverseOf se:realizedBy ;
+    rdfs:label   "realizes" ;
+    rdfs:domain  se:Component ;
+    rdfs:range   se:Function ;
+    rdfs:comment "Relates a component to a function it makes happen." .
+
+se:realizedBy a owl:ObjectProperty ;
+    rdfs:label   "realized by" ;
+    rdfs:domain  se:Function ;
+    rdfs:range   se:Component ;
+    rdfs:comment "Relates a function to the component that makes it happen." .
+
+se:hasInterface a owl:ObjectProperty ;
+    rdfs:label   "has interface" ;
+    rdfs:domain  se:Component ;
+    rdfs:range   se:Interface ;
+    rdfs:comment "Relates a component to one of its interfaces." .
+
+se:connectsTo a owl:ObjectProperty , owl:SymmetricProperty ;
+    rdfs:label   "connects to" ;
+    rdfs:domain  se:Interface ;
+    rdfs:range   se:Interface ;
+    rdfs:comment "Relates two interfaces that are joined. Symmetric: if A connects to B then B connects to A." .
+
+se:satisfies a owl:ObjectProperty ;
+    rdfs:label   "satisfies" ;
+    rdfs:domain  se:Component ;
+    rdfs:range   se:Requirement ;
+    rdfs:comment "Relates a component to a requirement it meets." .
+
+se:verifies a owl:ObjectProperty ;
+    rdfs:label   "verifies" ;
+    rdfs:domain  se:VerificationActivity ;
+    rdfs:range   se:Requirement ;
+    rdfs:comment "Relates a verification activity to the requirement it checks." .
+
+se:raisedBy a owl:ObjectProperty ;
+    rdfs:label   "raised by" ;
+    rdfs:domain  se:Requirement ;
+    rdfs:range   se:Stakeholder ;
+    rdfs:comment "Relates a requirement to the stakeholder who asked for it." .
+
+se:derivedFrom a owl:ObjectProperty , owl:TransitiveProperty ;
+    rdfs:label   "derived from" ;
+    rdfs:domain  se:Requirement ;
+    rdfs:range   se:Requirement ;
+    rdfs:comment "Relates a requirement to a higher-level requirement it was broken out of." .
+
+#################################################################
+#    Attributes (Data Properties)
+#################################################################
+
+se:hasIdentifier a owl:DatatypeProperty ;
+    rdfs:label   "has identifier" ;
+    rdfs:range   xsd:string ;
+    rdfs:comment "A short human-readable id, e.g. \"REQ-001\"." .
+
+se:massInKg a owl:DatatypeProperty ;
+    rdfs:label   "mass in kg" ;
+    rdfs:domain  se:Component ;
+    rdfs:range   xsd:decimal ;
+    rdfs:comment "How heavy a component is, in kilograms." .
+
+se:priority a owl:DatatypeProperty ;
+    rdfs:label   "priority" ;
+    rdfs:domain  se:Requirement ;
+    rdfs:range   xsd:integer ;
+    rdfs:comment "How important a requirement is; 1 is highest." .
+
+#################################################################
+#    Rules about the concepts (Restrictions)
+#################################################################
+
+# Every System performs at least one Function, and has at least two Components.
+se:System rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty se:performsFunction ; owl:someValuesFrom se:Function ] ,
+    [ a owl:Restriction ; owl:onProperty se:hasComponent ; owl:minQualifiedCardinality "2"^^xsd:nonNegativeInteger ; owl:onClass se:Component ] .
+
+# A Component connects to the outside world only through Interfaces.
+se:Component rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty se:hasInterface ; owl:allValuesFrom se:Interface ] .
+
+# Every Requirement is verified by at least one Verification Activity (the inverse of "verifies").
+se:Requirement rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty [ owl:inverseOf se:verifies ] ; owl:someValuesFrom se:VerificationActivity ] .
+
+#################################################################
+#    Examples (Individuals)
+#################################################################
+
+se:Aircraft a owl:NamedIndividual , se:System ;
+    rdfs:label "Aircraft" ;
+    se:performsFunction se:Fly ;
+    se:hasComponent se:Wing , se:Engine .
+
+se:Fly a owl:NamedIndividual , se:Function ;
+    rdfs:label "Fly" .
+
+se:Wing a owl:NamedIndividual , se:Component ;
+    rdfs:label "Wing" ;
+    se:massInKg "250.0"^^xsd:decimal .
+
+se:Engine a owl:NamedIndividual , se:Component ;
+    rdfs:label "Engine" ;
+    se:realizes se:Fly ;
+    se:hasInterface se:FuelPort .
+
+se:FuelPort a owl:NamedIndividual , se:Interface ;
+    rdfs:label "Fuel Port" .
+
+se:REQ_001 a owl:NamedIndividual , se:Requirement ;
+    rdfs:label "REQ-001" ;
+    rdfs:comment "The aircraft shall fly." ;
+    se:hasIdentifier "REQ-001" ;
+    se:priority "1"^^xsd:integer .
+
+se:GroundTest a owl:NamedIndividual , se:VerificationActivity ;
+    rdfs:label "Ground Test" ;
+    se:verifies se:REQ_001 .

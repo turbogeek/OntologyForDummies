@@ -24,8 +24,11 @@ Or build one portable file you can run anywhere — the OWL API is bundled insid
 
 ```bash
 ./gradlew cliJar
-java -jar build/libs/ontology-to-english-0.3.0-cli.jar my-ontology.owl --open
+java -jar build/libs/ontology-to-english-0.3.0-cli.jar examples/se-101.ttl --rosetta --open
 ```
+
+See [`examples/`](examples/) for the bundled **Systems Engineering 101** ontology and a one-command fetch of the
+real **Industrial Ontology Foundry** (IOF) ontologies to verbalize.
 
 Options:
 
