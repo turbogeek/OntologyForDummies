@@ -19,7 +19,7 @@ public final class VerbalizerOptions
     public enum ColorLevel { FULL, MONO, PLAIN }
 
     /** A verbalization format. Listing more than one renders the side-by-side "Rosetta" view. */
-    public enum Format { SBVR, MANCHESTER }
+    public enum Format { SBVR, OSE, MANCHESTER }
 
     public final boolean includeVerbalization;
     public final boolean includeModelGlossary;

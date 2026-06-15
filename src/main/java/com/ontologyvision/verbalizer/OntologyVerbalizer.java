@@ -44,7 +44,14 @@ public final class OntologyVerbalizer
     private final RenderContext ctx = new Ctx();
 
     private static AxiomRenderer rendererFor (final VerbalizerOptions.Format f)
-    { return ( f == VerbalizerOptions.Format.MANCHESTER ) ? new ManchesterRenderer() : new SbvrRenderer(); }
+    {
+        switch ( f )
+        {
+            case MANCHESTER: return new ManchesterRenderer();
+            case OSE:        return new OseRenderer();
+            default:         return new SbvrRenderer();
+        }
+    }
 
     /** Build the renderer list from {@link #opts}; call once {@code opts} is set. */
     private void selectRenderers ()
@@ -398,6 +405,7 @@ public final class OntologyVerbalizer
     static
     {
         KEYWORD_TO_CONSTRUCT.put( "each", "rdfs:subClassOf" );
+        KEYWORD_TO_CONSTRUCT.put( "every", "rdfs:subClassOf" );   // OSE's universal-subclass keyword
         KEYWORD_TO_CONSTRUCT.put( "is a", "rdfs:subClassOf" );
         KEYWORD_TO_CONSTRUCT.put( "is an", "rdfs:subClassOf" );
         KEYWORD_TO_CONSTRUCT.put( "at least one", "owl:someValuesFrom" );

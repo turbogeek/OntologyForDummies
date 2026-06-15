@@ -93,6 +93,17 @@ public class OntologyVerbalizerTest
     }
 
     @Test
+    public void rendersOseFormat () throws Exception
+    {
+        final OWLOntology ont = load( "/pizza.owl" );
+        final String html = new OntologyVerbalizer().verbalizeOntology( ont, "Pizza",
+                VerbalizerOptions.builder().formats( VerbalizerOptions.Format.OSE ).build() );
+        assertTrue( "OSE title", html.contains( "&mdash; OWL Simplified English" ) );
+        assertTrue( "OSE 'Every' (not SBVR 'Each')", html.contains( ">Every</a>" ) );
+        assertTrue( "OSE 'some' (not SBVR 'at least one')", html.contains( ">some</a>" ) );
+    }
+
+    @Test
     public void rendersRosettaSideBySide () throws Exception
     {
         final OWLOntology ont = load( "/pizza.owl" );

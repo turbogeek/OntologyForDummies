@@ -15,10 +15,16 @@ import java.util.TreeSet;
  * <u>names</u> (individuals). All styling/escaping/glossing comes from the {@link RenderContext}; this class
  * owns only the sentence templates and the class-expression reading (the {@code EXPR} visitor).
  */
-final class SbvrRenderer implements AxiomRenderer
+class SbvrRenderer implements AxiomRenderer
 {
     /** Set at the start of each {@code *Sentences} call so the {@code EXPR} visitor can reach the context. */
     private RenderContext ctx;
+
+    // ---- phrasing hooks: a subclass (OseRenderer) swaps these to vary the controlled-English wording --------
+    /** Universal-subclass keyword: "Each" (SBVR) / "Every" (OSE). */
+    protected String each ()     { return "Each"; }
+    /** Existential-restriction keyword: "at least one" (SBVR) / "some" (OSE). */
+    protected String someWord () { return "at least one"; }
 
     @Override public String formatId ()   { return "sbvr"; }
     @Override public String displayName () { return "SBVR Structured English"; }
@@ -49,12 +55,12 @@ final class SbvrRenderer implements AxiomRenderer
             if ( !sup.isAnonymous() )
             {
                 final OWLClass sc = sup.asOWLClass();
-                sentences.add( ctx.kw( "Each" ) + " " + ctx.term( c ) + " " + ctx.kw( "is " + ctx.aAn( ctx.label( sc ) ) ) + " "
+                sentences.add( ctx.kw( each() ) + " " + ctx.term( c ) + " " + ctx.kw( "is " + ctx.aAn( ctx.label( sc ) ) ) + " "
                         + ctx.term( sc ) + "." );
             }
             else
             {
-                sentences.add( ctx.kw( "Each" ) + " " + ctx.term( c ) + " " + render( sup ) + "." );
+                sentences.add( ctx.kw( each() ) + " " + ctx.term( c ) + " " + render( sup ) + "." );
             }
         }
         for ( final OWLEquivalentClassesAxiom ax : ont.getEquivalentClassesAxioms( c ) )
@@ -181,7 +187,7 @@ final class SbvrRenderer implements AxiomRenderer
     {
         @Override public String visit (final OWLClass ce) { return ce.isOWLThing() ? ctx.kw( "thing" ) : ctx.term( ce ); }
         @Override public String visit (final OWLObjectSomeValuesFrom ce )
-        { return verbObj( ce.getProperty() ) + " " + ctx.kw( "at least one" ) + " " + render( ce.getFiller() ); }
+        { return verbObj( ce.getProperty() ) + " " + ctx.kw( someWord() ) + " " + render( ce.getFiller() ); }
         @Override public String visit (final OWLObjectAllValuesFrom ce )
         { return verbObj( ce.getProperty() ) + " " + ctx.kw( "only" ) + " " + render( ce.getFiller() ); }
         @Override public String visit (final OWLObjectExactCardinality ce )
