@@ -24,13 +24,15 @@ Or build one portable file you can run anywhere — the OWL API is bundled insid
 
 ```bash
 ./gradlew cliJar
-java -jar build/libs/ontology-to-english-0.2.0-cli.jar my-ontology.owl --open
+java -jar build/libs/ontology-to-english-0.3.0-cli.jar my-ontology.owl --open
 ```
 
 Options:
 
 ```
 <input.owl|.ttl|.rdf> [output.html]
+  --manchester                 OWL Manchester syntax instead of SBVR English
+  --rosetta                    side-by-side: SBVR English | Manchester syntax (a learning view)
   --color full|mono|plain      colored, color-blind-friendly mono, or plain text
   --no-model --no-owl --no-rdf --no-verbalization   leave out sections
   --no-rollover                drop the hover-the-word-to-see-its-meaning panel

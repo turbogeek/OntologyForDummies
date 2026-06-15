@@ -78,4 +78,31 @@ public class OntologyVerbalizerTest
         assertEquals( "SBVR output drifted — regenerate the golden only if the change is intentional.",
                       expected, html );
     }
+
+    @Test
+    public void rendersManchesterFormat () throws Exception
+    {
+        final OWLOntology ont = load( "/pizza.owl" );
+        final String html = new OntologyVerbalizer().verbalizeOntology( ont, "Pizza",
+                VerbalizerOptions.builder().formats( VerbalizerOptions.Format.MANCHESTER ).build() );
+        assertTrue( "Manchester title", html.contains( "&mdash; Manchester Syntax" ) );
+        assertTrue( "Manchester frame keyword", html.contains( "SubClassOf:" ) );
+        assertTrue( "monospace Manchester spans", html.contains( "class=\"manchester\"" ) );
+        // short names come from the IRI fragment, NOT the Portuguese rdfs:label
+        assertTrue( "IRI short names (not labels)", html.contains( "MozzarellaTopping" ) );
+    }
+
+    @Test
+    public void rendersRosettaSideBySide () throws Exception
+    {
+        final OWLOntology ont = load( "/pizza.owl" );
+        final String html = new OntologyVerbalizer().verbalizeOntology( ont, "Pizza",
+                VerbalizerOptions.builder()
+                        .formats( VerbalizerOptions.Format.SBVR, VerbalizerOptions.Format.MANCHESTER ).build() );
+        assertTrue( "rosetta table", html.contains( "class=\"rosetta\"" ) );
+        assertTrue( "SBVR column header", html.contains( "<th>SBVR Structured English</th>" ) );
+        assertTrue( "Manchester column header", html.contains( "<th>Manchester Syntax</th>" ) );
+        assertTrue( "SBVR existential reading present", html.contains( "at least one" ) );
+        assertTrue( "Manchester reading present", html.contains( "SubClassOf:" ) );
+    }
 }

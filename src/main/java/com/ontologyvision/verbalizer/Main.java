@@ -42,6 +42,7 @@ public final class Main
         {
             System.err.println(
                     "usage: sbvr <input.owl|.ttl|.rdf> [output.html]\n"
+                  + "            [--manchester | --rosetta]   (default: SBVR Structured English)\n"
                   + "            [--no-verbalization] [--no-model] [--no-owl] [--no-rdf]\n"
                   + "            [--color full|mono|plain] [--no-rollover] [--title T] [--open]" );
             System.exit( args.length < 1 ? 2 : 0 );
@@ -64,6 +65,8 @@ public final class Main
                 case "--no-owl":           b.includeOwlGlossary( false );   break;
                 case "--no-rdf":           b.includeRdfGlossary( false );   break;
                 case "--no-rollover":      b.rollover( false );             break;
+                case "--manchester":       b.formats( VerbalizerOptions.Format.MANCHESTER ); break;
+                case "--rosetta":          b.formats( VerbalizerOptions.Format.SBVR, VerbalizerOptions.Format.MANCHESTER ); break;
                 case "--open":             open = true;                     break;
                 case "--color":            b.colorLevel( VerbalizerOptions.ColorLevel.valueOf( args[++i].toUpperCase() ) ); break;
                 case "--title":            title = args[++i];               break;

@@ -18,6 +18,9 @@ public final class VerbalizerOptions
      *  italic/bold typographic distinctions; PLAIN = no color and no type treatment. */
     public enum ColorLevel { FULL, MONO, PLAIN }
 
+    /** A verbalization format. Listing more than one renders the side-by-side "Rosetta" view. */
+    public enum Format { SBVR, MANCHESTER }
+
     public final boolean includeVerbalization;
     public final boolean includeModelGlossary;
     public final boolean includeOwlGlossary;
@@ -25,6 +28,9 @@ public final class VerbalizerOptions
     /** Emit {@code data-gloss} attributes + the bottom hover panel + the inline rollover script. */
     public final boolean rollover;
     public final ColorLevel colorLevel;
+    /** Formats to render. One = a single-format report; more than one = the side-by-side Rosetta view.
+     *  The first is the primary (drives section headings + entity kinds). Default: {@code [SBVR]}. */
+    public final java.util.List<Format> formats;
 
     /** Everything on, full color, rollover on. */
     public static final VerbalizerOptions DEFAULT = builder().build();
@@ -37,6 +43,7 @@ public final class VerbalizerOptions
         this.includeRdfGlossary   = b.includeRdfGlossary;
         this.rollover             = b.rollover;
         this.colorLevel           = b.colorLevel;
+        this.formats              = java.util.List.copyOf( b.formats );
     }
 
     public static Builder builder () { return new Builder(); }
@@ -50,6 +57,7 @@ public final class VerbalizerOptions
         private boolean includeRdfGlossary   = true;
         private boolean rollover             = true;
         private ColorLevel colorLevel        = ColorLevel.FULL;
+        private java.util.List<Format> formats = java.util.List.of( Format.SBVR );
 
         public Builder includeVerbalization ( final boolean v ) { this.includeVerbalization = v; return this; }
         public Builder includeModelGlossary ( final boolean v ) { this.includeModelGlossary = v; return this; }
@@ -57,6 +65,12 @@ public final class VerbalizerOptions
         public Builder includeRdfGlossary   ( final boolean v ) { this.includeRdfGlossary   = v; return this; }
         public Builder rollover             ( final boolean v ) { this.rollover             = v; return this; }
         public Builder colorLevel           ( final ColorLevel v ) { this.colorLevel = ( v == null ? ColorLevel.FULL : v ); return this; }
+        /** Set the format(s); listing more than one renders the Rosetta side-by-side view. Empty/null = SBVR. */
+        public Builder formats ( final Format... f )
+        {
+            this.formats = ( f == null || f.length == 0 ) ? java.util.List.of( Format.SBVR ) : java.util.List.of( f );
+            return this;
+        }
 
         public VerbalizerOptions build () { return new VerbalizerOptions( this ); }
     }

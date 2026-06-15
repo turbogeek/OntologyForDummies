@@ -37,10 +37,27 @@ public final class OntologyVerbalizer
     private OWLOntology ont;                              // the primary ontology being verbalized
     private Set<OWLOntology> lastOnts = new LinkedHashSet<>();
 
-    /** The verbalization FORMAT. SBVR today; Manchester / OSE / ACE plug in here without engine changes. */
-    private final AxiomRenderer renderer = new SbvrRenderer();
-    /** Shared primitives (styled tokens, names, escaping) the engine hands to {@link #renderer}. */
+    /** The verbalization FORMAT(s) — one = single-format, more than one = the side-by-side Rosetta view.
+     *  Re-selected from {@link #opts} at the start of each verbalize call; the first is the primary. */
+    private List<AxiomRenderer> renderers = List.of( new SbvrRenderer() );
+    /** Shared primitives (styled tokens, names, escaping) the engine hands to each renderer. */
     private final RenderContext ctx = new Ctx();
+
+    private static AxiomRenderer rendererFor (final VerbalizerOptions.Format f)
+    { return ( f == VerbalizerOptions.Format.MANCHESTER ) ? new ManchesterRenderer() : new SbvrRenderer(); }
+
+    /** Build the renderer list from {@link #opts}; call once {@code opts} is set. */
+    private void selectRenderers ()
+    {
+        final List<AxiomRenderer> rs = new ArrayList<>();
+        for ( final VerbalizerOptions.Format f : opts.formats ) rs.add( rendererFor( f ) );
+        this.renderers = rs.isEmpty() ? List.of( new SbvrRenderer() ) : rs;
+    }
+    private AxiomRenderer primary () { return renderers.get( 0 ); }
+    private boolean rosetta () { return renderers.size() > 1; }
+    private boolean hasSbvr () { for ( final AxiomRenderer r : renderers ) if ( r instanceof SbvrRenderer ) return true; return false; }
+    private boolean hasManchester () { for ( final AxiomRenderer r : renderers ) if ( r instanceof ManchesterRenderer ) return true; return false; }
+    private static boolean allEmpty (final List<List<String>> cols) { for ( final List<String> c : cols ) if ( !c.isEmpty() ) return false; return true; }
 
     // ---- public API -------------------------------------------------------------------------------------
 
@@ -62,6 +79,7 @@ public final class OntologyVerbalizer
         this.opts = ( opts == null ? VerbalizerOptions.DEFAULT : opts );
         this.ont = ont;
         this.lastOnts = ont.getImportsClosure();
+        selectRenderers();
 
         final List<OWLClass> classes = sorted( ont.getClassesInSignature() );
         final List<OWLObjectProperty> objProps = sorted( ont.getObjectPropertiesInSignature() );
@@ -96,6 +114,7 @@ public final class OntologyVerbalizer
         this.opts = ( opts == null ? VerbalizerOptions.DEFAULT : opts );
         this.ont = ont;
         this.lastOnts = ont.getImportsClosure();
+        selectRenderers();
 
         final List<OWLClass> classes = new ArrayList<>();
         final List<OWLObjectProperty> objProps = new ArrayList<>();
@@ -165,12 +184,13 @@ public final class OntologyVerbalizer
         for ( final OWLClass c : classes )
         {
             if ( c.isOWLThing() || c.isOWLNothing() ) continue;
-            final List<String> sentences = renderer.classSentences( c, ctx );
+            final List<List<String>> cols = new ArrayList<>();
+            for ( final AxiomRenderer r : renderers ) cols.add( r.classSentences( c, ctx ) );
             final String comment = comment( ont, c );
-            if ( sentences.isEmpty() && comment == null ) continue;   // nothing to say about a bare class
-            blocks.add( entityBlock( renderer.classKind(), term( c ), sentences, comment ) );
+            if ( allEmpty( cols ) && comment == null ) continue;   // nothing to say about a bare class
+            blocks.add( entityBlock( primary().classKind(), term( c ), cols, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( renderer.classesHeading(), blocks, out );
+        if ( !blocks.isEmpty() ) section( primary().classesHeading(), blocks, out );
     }
 
     private void verbalizeObjectPropsSection (final OWLOntology ont, final List<OWLObjectProperty> props,
@@ -180,12 +200,13 @@ public final class OntologyVerbalizer
         for ( final OWLObjectProperty p : props )
         {
             if ( p.isOWLTopObjectProperty() || p.isOWLBottomObjectProperty() ) continue;
-            final List<String> s = renderer.objectPropertySentences( p, ctx );
+            final List<List<String>> cols = new ArrayList<>();
+            for ( final AxiomRenderer r : renderers ) cols.add( r.objectPropertySentences( p, ctx ) );
             final String comment = comment( ont, p );
-            if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( renderer.objectPropertyKind(), verb( p ), s, comment ) );
+            if ( allEmpty( cols ) && comment == null ) continue;
+            blocks.add( entityBlock( primary().objectPropertyKind(), verb( p ), cols, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( renderer.objectPropertiesHeading(), blocks, out );
+        if ( !blocks.isEmpty() ) section( primary().objectPropertiesHeading(), blocks, out );
     }
 
     private void verbalizeDataPropsSection (final OWLOntology ont, final List<OWLDataProperty> props,
@@ -195,12 +216,13 @@ public final class OntologyVerbalizer
         for ( final OWLDataProperty p : props )
         {
             if ( p.isOWLTopDataProperty() || p.isOWLBottomDataProperty() ) continue;
-            final List<String> s = renderer.dataPropertySentences( p, ctx );
+            final List<List<String>> cols = new ArrayList<>();
+            for ( final AxiomRenderer r : renderers ) cols.add( r.dataPropertySentences( p, ctx ) );
             final String comment = comment( ont, p );
-            if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( renderer.dataPropertyKind(), verb( p ), s, comment ) );
+            if ( allEmpty( cols ) && comment == null ) continue;
+            blocks.add( entityBlock( primary().dataPropertyKind(), verb( p ), cols, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( renderer.dataPropertiesHeading(), blocks, out );
+        if ( !blocks.isEmpty() ) section( primary().dataPropertiesHeading(), blocks, out );
     }
 
     private void verbalizeIndividualsSection (final OWLOntology ont, final List<OWLNamedIndividual> inds,
@@ -209,12 +231,13 @@ public final class OntologyVerbalizer
         final List<String> blocks = new ArrayList<>();
         for ( final OWLNamedIndividual i : inds )
         {
-            final List<String> s = renderer.individualSentences( i, ctx );
+            final List<List<String>> cols = new ArrayList<>();
+            for ( final AxiomRenderer r : renderers ) cols.add( r.individualSentences( i, ctx ) );
             final String comment = comment( ont, i );
-            if ( s.isEmpty() && comment == null ) continue;
-            blocks.add( entityBlock( renderer.individualKind(), name( i ), s, comment ) );
+            if ( allEmpty( cols ) && comment == null ) continue;
+            blocks.add( entityBlock( primary().individualKind(), name( i ), cols, comment ) );
         }
-        if ( !blocks.isEmpty() ) section( renderer.individualsHeading(), blocks, out );
+        if ( !blocks.isEmpty() ) section( primary().individualsHeading(), blocks, out );
     }
 
     // ---- model glossary + reference glossaries ----------------------------------------------------------
@@ -442,19 +465,42 @@ public final class OntologyVerbalizer
 
     // ---- HTML scaffolding -------------------------------------------------------------------------------
 
-    private String entityBlock (final String kind, final String heading, final List<String> sentences,
+    private String entityBlock (final String kind, final String heading, final List<List<String>> cols,
                                 final String comment)
     {
-        sentences.sort( null );                                       // deterministic statement order
+        for ( final List<String> col : cols ) col.sort( null );       // deterministic statement order per column
         final StringBuilder b = new StringBuilder();
         b.append( "<div class=\"entity\"><div class=\"ehead\">" ).append( heading )
                 .append( " <span class=\"kind\">(" ).append( kind ).append( ")</span></div>" );
         if ( comment != null ) b.append( "<div class=\"cmt\">" ).append( comment ).append( "</div>" );
-        if ( !sentences.isEmpty() )
+        if ( cols.size() == 1 )
         {
-            b.append( "<ul>" );
-            for ( final String s : sentences ) b.append( "<li>" ).append( s ).append( "</li>" );
-            b.append( "</ul>" );
+            final List<String> sentences = cols.get( 0 );
+            if ( !sentences.isEmpty() )
+            {
+                b.append( "<ul>" );
+                for ( final String s : sentences ) b.append( "<li>" ).append( s ).append( "</li>" );
+                b.append( "</ul>" );
+            }
+        }
+        else
+        {
+            // Rosetta: one column per format (the same fact in each language), headed by the format name.
+            b.append( "<table class=\"rosetta\"><tr>" );
+            for ( final AxiomRenderer r : renderers ) b.append( "<th>" ).append( esc( r.displayName() ) ).append( "</th>" );
+            b.append( "</tr><tr>" );
+            for ( final List<String> col : cols )
+            {
+                b.append( "<td>" );
+                if ( !col.isEmpty() )
+                {
+                    b.append( "<ul>" );
+                    for ( final String s : col ) b.append( "<li>" ).append( s ).append( "</li>" );
+                    b.append( "</ul>" );
+                }
+                b.append( "</td>" );
+            }
+            b.append( "</tr></table>" );
         }
         b.append( "</div>" );
         return b.toString();
@@ -467,23 +513,45 @@ public final class OntologyVerbalizer
         for ( final String blk : blocks ) out.append( blk );
     }
 
+    /** Format label for the document title: "SBVR" (default — byte-stable) / "Rosetta" / the single format. */
+    private String reportLabel ()
+    {
+        if ( rosetta() ) return "Rosetta";
+        return primary().formatId().equals( "sbvr" ) ? "SBVR" : esc( primary().displayName() );
+    }
+
+    /** The legend line: the original SBVR role key for a single SBVR report (byte-stable), else a column key
+     *  naming the formats (keeping the SBVR role key when an SBVR column is present). */
+    private String legend ()
+    {
+        if ( !rosetta() && primary().formatId().equals( "sbvr" ) )
+            return "<div class=\"legend\">SBVR Structured English &mdash; "
+                    + "<span class=\"term\">term</span> (concept), "
+                    + "<span class=\"verb\">verb</span> (fact type), "
+                    + "<span class=\"kw\">keyword</span>, "
+                    + "<span class=\"name\">name</span> (individual)</div>";
+        final List<String> names = new ArrayList<>();
+        for ( final AxiomRenderer r : renderers ) names.add( esc( r.displayName() ) );
+        String l = "<div class=\"legend\">" + ( rosetta() ? "Side-by-side: " : "Format: " ) + join( names, " &nbsp;|&nbsp; " );
+        if ( hasSbvr() )
+            l += " &mdash; SBVR roles: <span class=\"term\">term</span>, <span class=\"verb\">verb</span>, "
+                    + "<span class=\"kw\">keyword</span>, <span class=\"name\">name</span>";
+        return l + "</div>";
+    }
+
     private String htmlDoc (final String title, final String ontIri, final String subtitle, final String body,
                             final List<OWLClass> classes, final List<OWLObjectProperty> objProps,
                             final List<OWLDataProperty> dataProps, final List<OWLNamedIndividual> inds)
     {
         final String bodyClass = ( opts.colorLevel == VerbalizerOptions.ColorLevel.MONO ) ? "mono"
                 : ( opts.colorLevel == VerbalizerOptions.ColorLevel.PLAIN ) ? "no-color" : "";
-        return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + esc( title ) + " &mdash; SBVR</title>"
+        return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" + esc( title ) + " &mdash; " + reportLabel() + "</title>"
                 + "<style>" + css() + "</style></head>"
                 + "<body class=\"" + bodyClass + "\"><div class=\"wrap\">"
                 + "<h1>" + esc( title ) + "</h1>"
                 + ( ontIri == null ? "" : "<p class=\"sub\">" + esc( ontIri ) + "</p>" )
                 + "<div class=\"stats\">" + subtitle + "</div>"
-                + "<div class=\"legend\">SBVR Structured English &mdash; "
-                + "<span class=\"term\">term</span> (concept), "
-                + "<span class=\"verb\">verb</span> (fact type), "
-                + "<span class=\"kw\">keyword</span>, "
-                + "<span class=\"name\">name</span> (individual)</div>"
+                + legend()
                 + toolbar()
                 + body
                 + "<hr style=\"border:none;border-top:1px solid #eee;margin:18px 0 8px;\">"
@@ -536,7 +604,7 @@ public final class OntologyVerbalizer
 
     private String css ()
     {
-        return "body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;color:#1a1a1a;}"
+        String css = "body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;color:#1a1a1a;}"
                 + ".wrap{max-width:880px;margin:0 auto;padding:18px 26px 5em;}"
                 + "h1{font-size:20px;margin:0 0 2px;} .sub{color:#666;font-size:12px;margin:0 0 4px;}"
                 + ".stats{color:#666;font-size:12px;margin:0 0 12px;}"
@@ -580,6 +648,16 @@ public final class OntologyVerbalizer
                 // section hiding
                 + "body.hide-model .sec-model{display:none;} body.hide-owl .sec-owl{display:none;} body.hide-rdf .sec-rdf{display:none;}"
                 + "@media print{.toolbar,.gloss-panel{display:none;} .wrap{padding-bottom:18px;}}";
+        // Rosetta / Manchester rules are appended ONLY when those formats are used, so a single-SBVR report's
+        // <style> stays byte-identical.
+        if ( rosetta() || hasManchester() )
+            css += ".manchester{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#333;white-space:pre-wrap;}"
+                 + "table.rosetta{border-collapse:collapse;width:100%;margin:2px 0 8px;table-layout:fixed;}"
+                 + "table.rosetta th{text-align:left;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #eee;padding:2px 10px 3px 0;}"
+                 + "table.rosetta td{vertical-align:top;padding:3px 12px 3px 0;}"
+                 + "table.rosetta ul{margin:2px 0;padding-left:18px;} table.rosetta li{margin:2px 0;}"
+                 + "body.hide-manchester .manchester{display:none;}";
+        return css;
     }
 
     // ---- helpers ----------------------------------------------------------------------------------------
