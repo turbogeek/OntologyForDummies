@@ -1,7 +1,7 @@
 # OntologyForDummies
-Ontology Vision is a set of ontology visualization tools that are specifically aimed at the novice (or slightly novice) ontologist. The basic hope is to allow the novice to read and create ontologies as well as give the expert ontologist a way to communicate with the muggles.
+Ontology For Dummies is a set of ontology visualization and editing tools that are specifically aimed at the novice (or slightly novice) ontologist. The basic hope is to allow the novice to read and create ontologies as well as give the expert ontologist a way to communicate with the muggles.
 
-Unlike Harry (the) Potter, we think that ontologies are important to the mugggles (the owner of the project is a muggle who was creating an ontology on magic, so needed a way to learn the magic of ontology to create a magicc ontology). 
+Unlike Harry (the) Potter, we think that ontologies are important to the mugggles (the owner of the project is a muggle who was creating an ontology on magic, so needed a way to learn the magic of ontology to create a magic ontology). 
 
 The first tool converts ontologies to reasonably easy to read ontologies. 
 
