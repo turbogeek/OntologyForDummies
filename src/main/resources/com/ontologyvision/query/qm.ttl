@@ -1,0 +1,58 @@
+# Ontology For Muggles — query-model (qm:) vocabulary.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Daniel Brookshier
+#
+# A tiny OWL vocabulary for representing a SPARQL query as an OWL/RDF structure, so a query can be:
+#   - shipped in a reusable CATALOG (template / statistics / good-pattern / bad-pattern queries), and
+#   - SAVED by a user as an OWL named individual INSIDE their model (round-trips through OWL/RDF and, in a
+#     MagicDraw/Teamwork-Cloud model, syncs like any other individual — no local files needed).
+# Everything is a string-valued annotation property so a query is just a named thing with metadata; the SPARQL
+# itself lives in qm:queryText. No SPIN AST, no SHACL shapes — the lightweight, muggle-legible option.
+
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix qm:   <https://ontologyvision.com/query-model#> .
+@base         <https://ontologyvision.com/query-model> .
+
+<https://ontologyvision.com/query-model> a owl:Ontology ;
+    rdfs:label   "Query Model (qm)" ;
+    rdfs:comment "A lightweight OWL vocabulary for storing SPARQL queries as named individuals — for the Ontology For Muggles query/pattern catalog and for user-saved queries. MIT." ;
+    owl:versionInfo "0.5.0" .
+
+qm:Query a owl:Class ;
+    rdfs:label   "Query" ;
+    rdfs:comment "A named, runnable query (its SPARQL is in qm:queryText). A user's saved query, or a catalog entry." .
+
+qm:TemplateQuery a owl:Class ;
+    rdfs:subClassOf qm:Query ;
+    rdfs:label   "Template Query" ;
+    rdfs:comment "A query with ${placeholder} parameters (see qm:parameter) the tool fills in before running." .
+
+qm:PatternQuery a owl:Class ;
+    rdfs:subClassOf qm:Query ;
+    rdfs:label   "Pattern Query" ;
+    rdfs:comment "A query that detects a good or bad ontology pattern (see qm:polarity)." .
+
+# --- the metadata (all string-valued annotation properties, so a query is just an annotated named thing) ---
+
+qm:queryText      a owl:AnnotationProperty ; rdfs:label "query text" ;
+    rdfs:comment "The SPARQL text (self-contained, with its own PREFIX lines)." .
+qm:name           a owl:AnnotationProperty ; rdfs:label "name" ;
+    rdfs:comment "A short, muggle-facing title." .
+qm:description    a owl:AnnotationProperty ; rdfs:label "description" ;
+    rdfs:comment "What it finds, in plain English." .
+qm:category       a owl:AnnotationProperty ; rdfs:label "category" ;
+    rdfs:comment "One of: STATS, DISCOVERY, GOOD_PATTERN, BAD_PATTERN, USER." .
+qm:polarity       a owl:AnnotationProperty ; rdfs:label "polarity" ;
+    rdfs:comment "For pattern queries: GOOD or BAD." .
+qm:severity       a owl:AnnotationProperty ; rdfs:label "severity" ;
+    rdfs:comment "For bad patterns: info, warning, or error." .
+qm:remediation    a owl:AnnotationProperty ; rdfs:label "remediation" ;
+    rdfs:comment "Plain-English advice for fixing a bad-pattern hit." .
+qm:expectedResult a owl:AnnotationProperty ; rdfs:label "expected result" ;
+    rdfs:comment "A hint on reading the result, e.g. 'empty == healthy' for a bad-pattern check." .
+qm:keyword        a owl:AnnotationProperty ; rdfs:label "keyword" ;
+    rdfs:comment "A search/filter tag (repeatable)." .
+qm:parameter      a owl:AnnotationProperty ; rdfs:label "parameter" ;
+    rdfs:comment "A ${placeholder} name a TemplateQuery expects (repeatable)." .

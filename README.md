@@ -25,7 +25,7 @@ You need a **Java 17+ JDK**. Everything else is fetched by the Gradle wrapper.
 java -jar build/libs/ontology-to-english-*-cli.jar examples/se-101.ttl --open
 ```
 
-That builds a single self-contained jar at `build/libs/ontology-to-english-0.4.0-cli.jar` (the OWL API is bundled inside it), runs it on the bundled **Systems Engineering 101** ontology, and pops the result open in your browser. The CLI prints `Wrote <absolute path>` so you can always find the file.
+That builds a single self-contained jar at `build/libs/ontology-to-english-0.5.0-cli.jar` (the OWL API is bundled inside it), runs it on the bundled **Systems Engineering 101** ontology, and pops the result open in your browser. The CLI prints `Wrote <absolute path>` so you can always find the file.
 
 Prefer Gradle to do the running?
 
@@ -62,7 +62,7 @@ New to ontologies? **Start with the primer**, then read your first report.
 
 ## Use it from your own code
 
-It's a small library too, with a single runtime dependency (the OWL API). The Maven/Gradle coordinates are `com.ontologyvision:ontology-to-english:0.4.0`.
+It's a small library too, with a single runtime dependency (the OWL API). The Maven/Gradle coordinates are `com.ontologyvision:ontology-to-english:0.5.0`.
 
 ```java
 OWLOntology ont = OWLManager.createOWLOntologyManager()

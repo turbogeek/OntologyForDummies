@@ -1,0 +1,151 @@
+# Ontology For Muggles — query/pattern CATALOG (seed slice).
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Daniel Brookshier
+#
+# Ready-to-run SPARQL queries for any OWL ontology: statistics, discovery, and good/bad PATTERN checks
+# (bad patterns grounded in OOPS! pitfalls; good patterns in ODP conventions). Each query is self-contained
+# (its own PREFIX lines) so it runs as-is. For bad patterns, "empty == healthy". Consumed by the VOM query
+# window and (later) the CLI's Pillar-3 validation via QueryCatalog.
+
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix qm:   <https://ontologyvision.com/query-model#> .
+@base         <https://ontologyvision.com/query-catalog/> .
+
+# qm: declarations inline, so the catalog parses deterministically on its own (no import resolution needed).
+qm:Query a owl:Class . qm:TemplateQuery a owl:Class . qm:PatternQuery a owl:Class .
+qm:queryText a owl:AnnotationProperty . qm:name a owl:AnnotationProperty . qm:description a owl:AnnotationProperty .
+qm:category a owl:AnnotationProperty . qm:polarity a owl:AnnotationProperty . qm:severity a owl:AnnotationProperty .
+qm:remediation a owl:AnnotationProperty . qm:expectedResult a owl:AnnotationProperty .
+qm:keyword a owl:AnnotationProperty . qm:parameter a owl:AnnotationProperty .
+
+# =================================================================== STATISTICS
+
+<count-classes> a qm:Query ;
+    qm:name "Count classes" ; qm:category "STATS" ;
+    qm:description "How many named classes the ontology defines." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+SELECT (COUNT(DISTINCT ?c) AS ?classes) WHERE { ?c a owl:Class . FILTER(isIRI(?c)) }""" .
+
+<count-object-properties> a qm:Query ;
+    qm:name "Count object properties" ; qm:category "STATS" ;
+    qm:description "How many object (relationship) properties the ontology defines." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+SELECT (COUNT(DISTINCT ?p) AS ?objectProperties) WHERE { ?p a owl:ObjectProperty . FILTER(isIRI(?p)) }""" .
+
+<count-data-properties> a qm:Query ;
+    qm:name "Count data properties" ; qm:category "STATS" ;
+    qm:description "How many data (attribute) properties the ontology defines." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+SELECT (COUNT(DISTINCT ?p) AS ?dataProperties) WHERE { ?p a owl:DatatypeProperty . FILTER(isIRI(?p)) }""" .
+
+<count-individuals> a qm:Query ;
+    qm:name "Count individuals" ; qm:category "STATS" ;
+    qm:description "How many named individuals (instances) the ontology contains." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+SELECT (COUNT(DISTINCT ?i) AS ?individuals) WHERE { ?i a owl:NamedIndividual }""" .
+
+<list-imports> a qm:Query ;
+    qm:name "List imported ontologies" ; qm:category "STATS" ;
+    qm:description "Which other ontologies this one imports." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+SELECT ?imported WHERE { ?o a owl:Ontology ; owl:imports ?imported } ORDER BY ?imported""" .
+
+# =================================================================== DISCOVERY
+
+<list-classes> a qm:Query ;
+    qm:name "List all classes" ; qm:category "DISCOVERY" ;
+    qm:description "Every named class, with its label if it has one." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?class ?label WHERE { ?class a owl:Class . FILTER(isIRI(?class)) OPTIONAL { ?class rdfs:label ?label } } ORDER BY ?class""" .
+
+<subclasses-of> a qm:TemplateQuery ;
+    qm:name "Subclasses of a class" ; qm:category "DISCOVERY" ; qm:parameter "classIRI" ;
+    qm:description "All (transitive) subclasses of a chosen class. Fill in ${classIRI}." ;
+    qm:queryText """PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?subclass WHERE { ?subclass rdfs:subClassOf+ <${classIRI}> . FILTER(isIRI(?subclass)) } ORDER BY ?subclass""" .
+
+<individuals-of> a qm:TemplateQuery ;
+    qm:name "Individuals of a class" ; qm:category "DISCOVERY" ; qm:parameter "classIRI" ;
+    qm:description "All individuals of a chosen class. Fill in ${classIRI}." ;
+    qm:queryText """SELECT ?individual WHERE { ?individual a <${classIRI}> } ORDER BY ?individual""" .
+
+<properties-and-domain-range> a qm:Query ;
+    qm:name "Properties with domain & range" ; qm:category "DISCOVERY" ;
+    qm:description "Each object property and what it connects (its domain and range), if declared." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?property ?domain ?range WHERE { ?property a owl:ObjectProperty . FILTER(isIRI(?property))
+  OPTIONAL { ?property rdfs:domain ?domain } OPTIONAL { ?property rdfs:range ?range } } ORDER BY ?property""" .
+
+# =================================================================== BAD PATTERNS  (empty == healthy)
+
+<bad-missing-domain> a qm:PatternQuery ;
+    qm:name "Object properties missing a domain" ; qm:category "BAD_PATTERN" ;
+    qm:polarity "BAD" ; qm:severity "warning" ; qm:expectedResult "empty == healthy" ;
+    qm:description "Object properties with no rdfs:domain — readers can't tell what they apply to (OOPS! P11)." ;
+    qm:remediation "Add an rdfs:domain stating which class the property starts from." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?property WHERE { ?property a owl:ObjectProperty . FILTER(isIRI(?property))
+  FILTER NOT EXISTS { ?property rdfs:domain ?d } } ORDER BY ?property""" .
+
+<bad-missing-range> a qm:PatternQuery ;
+    qm:name "Object properties missing a range" ; qm:category "BAD_PATTERN" ;
+    qm:polarity "BAD" ; qm:severity "warning" ; qm:expectedResult "empty == healthy" ;
+    qm:description "Object properties with no rdfs:range — readers can't tell what they point to (OOPS! P11)." ;
+    qm:remediation "Add an rdfs:range stating which class the property points to." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?property WHERE { ?property a owl:ObjectProperty . FILTER(isIRI(?property))
+  FILTER NOT EXISTS { ?property rdfs:range ?r } } ORDER BY ?property""" .
+
+<bad-orphan-classes> a qm:PatternQuery ;
+    qm:name "Orphan classes" ; qm:category "BAD_PATTERN" ;
+    qm:polarity "BAD" ; qm:severity "info" ; qm:expectedResult "empty == healthy" ;
+    qm:description "Classes with no named superclass (floating under owl:Thing) — often a missing 'is-a' (OOPS! P14)." ;
+    qm:remediation "Give the class a meaningful superclass with rdfs:subClassOf, unless it is truly a top concept." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?class WHERE { ?class a owl:Class . FILTER(isIRI(?class))
+  FILTER NOT EXISTS { ?class rdfs:subClassOf ?super . FILTER(isIRI(?super) && ?super != owl:Thing) } } ORDER BY ?class""" .
+
+<bad-missing-labels> a qm:PatternQuery ;
+    qm:name "Classes missing a label" ; qm:category "BAD_PATTERN" ;
+    qm:polarity "BAD" ; qm:severity "warning" ; qm:expectedResult "empty == healthy" ;
+    qm:description "Classes with no rdfs:label — muggles see a cryptic IRI instead of a readable name (OOPS! P12)." ;
+    qm:remediation "Add an rdfs:label with a human-readable name." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?class WHERE { ?class a owl:Class . FILTER(isIRI(?class))
+  FILTER NOT EXISTS { ?class rdfs:label ?l } } ORDER BY ?class""" .
+
+<bad-circular-subclass> a qm:PatternQuery ;
+    qm:name "Circular subclass-of" ; qm:category "BAD_PATTERN" ;
+    qm:polarity "BAD" ; qm:severity "error" ; qm:expectedResult "empty == healthy" ;
+    qm:description "A class that is (transitively) a subclass of itself — a logical loop in the hierarchy (OOPS! P21)." ;
+    qm:remediation "Break the cycle: remove the rdfs:subClassOf edge that closes the loop." ;
+    qm:queryText """PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?class WHERE { ?class rdfs:subClassOf+ ?class . FILTER(isIRI(?class)) } ORDER BY ?class""" .
+
+# =================================================================== GOOD PATTERNS
+
+<good-documented-classes> a qm:PatternQuery ;
+    qm:name "Well-documented classes" ; qm:category "GOOD_PATTERN" ;
+    qm:polarity "GOOD" ; qm:expectedResult "more is better" ;
+    qm:description "Classes that have BOTH a label and a comment — readable and explained (the gold standard)." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?class WHERE { ?class a owl:Class . FILTER(isIRI(?class))
+  ?class rdfs:label ?l . ?class rdfs:comment ?c } ORDER BY ?class""" .
+
+<good-typed-properties> a qm:PatternQuery ;
+    qm:name "Fully-typed properties" ; qm:category "GOOD_PATTERN" ;
+    qm:polarity "GOOD" ; qm:expectedResult "more is better" ;
+    qm:description "Object properties that declare both a domain and a range — well-formed relationships." ;
+    qm:queryText """PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?property WHERE { ?property a owl:ObjectProperty . FILTER(isIRI(?property))
+  ?property rdfs:domain ?d . ?property rdfs:range ?r } ORDER BY ?property""" .
