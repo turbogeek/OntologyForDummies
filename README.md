@@ -1,18 +1,18 @@
-# OntologyForDummies
+# Ontology For Muggles
 
-**Turn an OWL ontology into a colored, hyperlinked web page that reads like plain English — so muggles can read it.**
+## There are Ontolodists and then there is everyone else
 
-Ontology Vision is a set of ontology visualization tools aimed squarely at the novice (or slightly novice) ontologist. The basic hope is to let the novice read and create ontologies, and to give the expert ontologist a way to communicate with the muggles.
+Ontology for Muggles is a set of ontology visualizations and tools aimed squarely at the unwashed muggles (or slightly novice ontology wizards in training). The basic hope is to let the ontology muggles read and create ontologies, and to give the expert ontology wizards a way to communicate with vast population of muggles.
 
-Unlike Harry (the) Potter, we think ontologies are important to the muggles. (The owner of the project is a muggle who was creating an ontology on magic, so he needed a way to learn the magic of ontology in order to create a magic ontology.)
+Unlike Harry (the) Potter, we think the magic of ontologies are important to the muggles. (The owner of the project is a muggle who was creating an ontology on magic, so he needed a way to learn the magic of ontology in order to create a magic ontology.)
 
-The first tool converts ontologies into reasonably easy-to-read ontologies.
+The first tool converts ontologies into reasonably easy-to-read ontologies. But there will be more! Why? AI first, because it is now easy for a gray-haired engineer/programmer to build cool tools. But also AI, because one of the multipliers of AI intelligence is good, standardized, navigable data. Ontologies meet this need.
 
-But there will be more! Why? AI first, because it is now easy for a gray-haired engineer/programmer to build cool tools. But also AI, because one of the multipliers of AI intelligence is good, standardized, navigable data. Ontologies meet this need.
-
-The problem is creating them. One of the biggest issues is that professional ontologists are some of the rarest brains on the planet. A quick Google search said a large ontology conference is 1,500 people. My first JavaOne conference was over 20,000. Google IO is 5,000, with thousands more downloading the videos. Simply put, to boost the creation of ontologies, we need more help. Yes, real ontologists need to be involved, but the precision, language, skills, and rules of ontology need a little translation for the muggles who are the experts in everything else — except ontology.
+The problem is creating, reviewing and editing of ontologies needs the muggles because often they are the wizards of their domain, just not experts of ontology. Professional ontologists are some of the rarest brains on the planet and there are very few of them, so we need to make ontology accessable to the masses. A quick Google search said an average large ontology conference is 1,500 people. My first JavaOne conference was over 20,000. Google IO is 5,000, with thousands more downloading the videos. Simply put, to boost the creation of ontologies, we need more help. Yes, real ontologists need to be involved, but the precision, language, skills, and rules of ontology need a little translation for the muggles who are the experts in everything else — except ontology.
 
 ## Tool #1: Ontology to English
+**Turn an OWL ontology into a colored, hyperlinked web page that reads like plain English — so muggles can read it.**
+
 
 Our first tool uses SBVR (you don't care what SBVR is yet, so I won't bore you) and the OWL API to create English-like translations of an ontology. It reads an OWL file and writes a nice readable web page with colors and hyperlinks, with even more translations of the big words of ontology that sneak in. This engine has been refined over the years, but the big professional ontology tools never scratched the muggle brain-cell itch. For many people, this simple translation will go quite far. If we find better, we will let you know.
 
