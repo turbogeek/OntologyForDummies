@@ -16,6 +16,8 @@ build/
 
 # generated reports
 *-sbvr.html
+# …but the SBVR golden-gate fixture IS a committed test resource (sbvrOutputIsByteIdentical)
+!src/test/resources/expected-test-sbvr.html
 
 # third-party example ontologies fetched on demand (./gradlew fetchIofExample)
 /examples/iof/
