@@ -36,6 +36,9 @@ public final class OntologyVerbalizer
     private VerbalizerOptions opts = VerbalizerOptions.DEFAULT;
     private OWLOntology ont;                              // the primary ontology being verbalized
     private Set<OWLOntology> lastOnts = new LinkedHashSet<>();
+    /** OWL/RDF construct terms actually used in this verbalization — recorded as keywords are glossed, so the
+     *  reference glossaries can show just the relevant constructs (with a "Show all constructs" toggle). */
+    private final Set<String> usedConstructs = new LinkedHashSet<>();
 
     /** The verbalization FORMAT(s) — one = single-format, more than one = the side-by-side Rosetta view.
      *  Re-selected from {@link #opts} at the start of each verbalize call; the first is the primary. */
@@ -275,18 +278,34 @@ public final class OntologyVerbalizer
                 + kind + "</td><td>" + esc( glossPlain( e ) ) + "</td></tr>";
     }
 
+    /**
+     * A reference glossary, filtered to the constructs actually used in this verbalization (the rest are emitted
+     * as {@code gloss-extra} rows, hidden until the reader ticks "Show all constructs"). Each row is a notation
+     * thesaurus: the OWL/RDF term, its Manchester-syntax form, an SBVR reading, and the plain meaning.
+     */
     private String referenceGlossarySection (final String heading, final List<GlossaryData.Entry> entries)
     {
         if ( entries == null || entries.isEmpty() ) return "";
         final StringBuilder rows = new StringBuilder();
+        int used = 0, extra = 0;
         for ( final GlossaryData.Entry en : entries )
         {
-            rows.append( "<tr><td class=\"gloss-term\">" ).append( esc( en.term ) ).append( "</td><td>" )
-                .append( esc( en.meaning ) ).append( "</td><td class=\"gloss-sbvr\">" )
-                .append( esc( en.sbvrReading ) ).append( "</td></tr>" );
+            final boolean isUsed = usedConstructs.contains( en.term );
+            if ( isUsed ) { used++; } else { extra++; }
+            rows.append( isUsed ? "<tr>" : "<tr class=\"gloss-extra\">" )
+                .append( "<td class=\"gloss-term\">" ).append( esc( en.term ) ).append( "</td>" )
+                .append( "<td class=\"gloss-manch\"><code class=\"manch-cell\">" ).append( esc( en.manchester ) ).append( "</code></td>" )
+                .append( "<td class=\"gloss-sbvr\">" ).append( esc( en.sbvrReading ) ).append( "</td>" )
+                .append( "<td>" ).append( esc( en.meaning ) ).append( "</td></tr>" );
         }
-        return "<h2>" + heading + " <span class=\"count\">" + entries.size() + "</span></h2>"
-                + "<table class=\"gloss\"><tr><th>Term</th><th>Meaning</th><th>SBVR reading</th></tr>"
+        final String note = ( used == 0 )
+                ? "<p class=\"note\">None of these constructs surfaced in this verbalization. Tick <b>Show all constructs</b> "
+                  + "(top toolbar) to browse the full reference.</p>"
+                : "<p class=\"note\">The " + used + " construct" + ( used == 1 ? "" : "s" ) + " used in this report"
+                  + ( extra > 0 ? " &mdash; tick <b>Show all constructs</b> for the other " + extra + "." : "." )
+                  + " Each row pairs the OWL/RDF term with its <b>Manchester</b> and <b>SBVR</b> equivalents (a notation thesaurus).</p>";
+        return "<h2>" + heading + " <span class=\"count\">" + used + "</span></h2>" + note
+                + "<table class=\"gloss\"><tr><th>Term (OWL/RDF)</th><th>Manchester</th><th>SBVR reading</th><th>Meaning</th></tr>"
                 + rows + "</table>";
     }
 
@@ -390,6 +409,7 @@ public final class OntologyVerbalizer
         String k = keyword.toLowerCase().trim().replaceAll( "\\s+\\d+$", "" ).replace( " value(s)", "" ).trim();
         final String term = KEYWORD_TO_CONSTRUCT.get( k );
         if ( term == null ) return null;
+        usedConstructs.add( term );   // this construct surfaced in the verbalization -> keep it in the reference glossary
         final String meaning = constructMeaning( term );
         return meaning == null ? null : term + " — " + meaning;
     }
@@ -597,6 +617,8 @@ public final class OntologyVerbalizer
         if ( opts.includeModelGlossary ) t.append( "<label><input type=\"checkbox\" id=\"t-model\"> Hide model glossary</label>" );
         if ( opts.includeOwlGlossary )   t.append( "<label><input type=\"checkbox\" id=\"t-owl\"> Hide OWL glossary</label>" );
         if ( opts.includeRdfGlossary )   t.append( "<label><input type=\"checkbox\" id=\"t-rdf\"> Hide RDF glossary</label>" );
+        if ( opts.includeOwlGlossary || opts.includeRdfGlossary )
+            t.append( "<label><input type=\"checkbox\" id=\"t-allconstructs\"> Show all constructs</label>" );
         return t.append( "</div>" ).toString();
     }
 
@@ -618,7 +640,7 @@ public final class OntologyVerbalizer
                 + "document.addEventListener('mouseout',function(e){if(g(e.target)!==null)p.innerHTML=hint;});"
                 + "document.addEventListener('click',function(e){if(g(e.target)!==null)e.preventDefault();});}"
                 + "function chk(id,cls){var c=document.getElementById(id);if(c)c.addEventListener('change',function(){document.body.classList.toggle(cls,c.checked);});}"
-                + "chk('t-model','hide-model');chk('t-owl','hide-owl');chk('t-rdf','hide-rdf');"
+                + "chk('t-model','hide-model');chk('t-owl','hide-owl');chk('t-rdf','hide-rdf');chk('t-allconstructs','show-all');"
                 + "var m=document.getElementById('t-colormode');if(m)m.addEventListener('change',function(){var b=document.body.classList;b.remove('mono','no-color');if(m.value==='mono')b.add('mono');else if(m.value==='plain')b.add('no-color');});"
                 + "})();</script>";
     }
@@ -668,6 +690,8 @@ public final class OntologyVerbalizer
                 + "body.no-color .verb{font-style:normal;} body.no-color .kw{font-weight:normal;}"
                 // section hiding
                 + "body.hide-model .sec-model{display:none;} body.hide-owl .sec-owl{display:none;} body.hide-rdf .sec-rdf{display:none;}"
+                + "td.gloss-manch{white-space:nowrap;} code.manch-cell{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#444;}"
+                + "tr.gloss-extra{display:none;} body.show-all tr.gloss-extra{display:table-row;}"
                 + "@media print{.toolbar,.gloss-panel{display:none;} .wrap{padding-bottom:18px;}}";
         // Rosetta / Manchester rules are appended ONLY when those formats are used, so a single-SBVR report's
         // <style> stays byte-identical.

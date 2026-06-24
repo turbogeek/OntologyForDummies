@@ -51,6 +51,23 @@ public class OntologyVerbalizerTest
     }
 
     @Test
+    public void referenceGlossaryFiltersToUsedConstructsWithThesaurus () throws Exception
+    {
+        final OWLOntology ont = load( "/pizza.owl" );
+        final String html = new OntologyVerbalizer().verbalizeOntology( ont, "Pizza" );
+        // Notation thesaurus: a Manchester column sits beside the SBVR reading in the reference glossary.
+        assertTrue( "Manchester column header", html.contains( "<th>Manchester</th>" ) );
+        assertTrue( "Manchester form for subClassOf", html.contains( "SubClassOf:" ) );
+        // Filtered by default: the constructs pizza uses are shown, the rest are hidden extras behind a toggle.
+        assertTrue( "Show-all toggle present", html.contains( "id=\"t-allconstructs\"" ) );
+        assertTrue( "unused constructs hidden as extras", html.contains( "class=\"gloss-extra\"" ) );
+        assertTrue( "a used construct (someValuesFrom) is listed", html.contains( "owl:someValuesFrom" ) );
+        // A construct pizza does NOT use (irreflexive) must be an extra row, not a plain visible one.
+        assertTrue( "unused construct is an extra row",
+                    html.contains( "class=\"gloss-extra\"><td class=\"gloss-term\">owl:IrreflexiveProperty" ) );
+    }
+
+    @Test
     public void verbalizesSmallOntology () throws Exception
     {
         final OWLOntology ont = load( "/test.owl" );
@@ -69,6 +86,12 @@ public class OntologyVerbalizerTest
     {
         final OWLOntology ont = load( "/test.owl" );
         final String html = new OntologyVerbalizer().verbalizeOntology( ont, "test" );
+        if ( Boolean.getBoolean( "vom.regenGolden" ) )
+        {   // deliberate, reviewed change: rewrite the golden, then re-run without the flag to confirm it matches
+            java.nio.file.Files.write( java.nio.file.Paths.get( "src/test/resources/expected-test-sbvr.html" ),
+                                       html.getBytes( StandardCharsets.UTF_8 ) );
+            return;
+        }
         final String expected;
         try ( InputStream in = getClass().getResourceAsStream( "/expected-test-sbvr.html" ) )
         {

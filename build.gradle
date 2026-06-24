@@ -14,7 +14,7 @@ plugins {
 }
 
 group   = 'com.ontologyvision'
-version = '0.7.0'
+version = '0.8.0'
 
 repositories {
     mavenCentral()
@@ -51,6 +51,9 @@ application {
 
 test {
     testLogging { events 'passed', 'skipped', 'failed'; exceptionFormat 'full' }
+    // Forward -D properties so the golden SBVR file can be regenerated on a deliberate change:
+    //   ./gradlew test --tests '*sbvrOutputIsByteIdentical' -Dvom.regenGolden=true
+    systemProperties System.getProperties()
 }
 
 // Self-contained runnable jar with the OWL API bundled, so it runs anywhere with just a JRE:

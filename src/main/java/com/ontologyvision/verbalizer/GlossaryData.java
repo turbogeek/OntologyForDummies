@@ -21,18 +21,21 @@ import java.util.List;
  */
 public final class GlossaryData
 {
-    /** One reference-glossary entry: an OWL/RDF construct term, its meaning, and an SBVR reading example. */
+    /** One reference-glossary entry: an OWL/RDF construct term, its meaning, an SBVR reading example, and the
+     *  equivalent OWL 2 Manchester-syntax form (the thesaurus column; {@code "—"} when there is no keyword). */
     public static final class Entry
     {
         public final String term;
         public final String meaning;
         public final String sbvrReading;
+        public final String manchester;
 
-        Entry ( final String term, final String meaning, final String sbvrReading )
+        Entry ( final String term, final String meaning, final String sbvrReading, final String manchester )
         {
             this.term = term;
             this.meaning = meaning;
             this.sbvrReading = sbvrReading;
+            this.manchester = manchester;
         }
     }
 
@@ -60,7 +63,8 @@ public final class GlossaryData
                 if ( line.isEmpty() || line.charAt( 0 ) == '#' ) { continue; }
                 final String[] c = line.split( "\t", -1 );
                 if ( c.length < 2 || c[0].trim().isEmpty() ) { continue; }
-                out.add( new Entry( c[0].trim(), c[1].trim(), c.length > 2 ? c[2].trim() : "" ) );
+                out.add( new Entry( c[0].trim(), c[1].trim(), c.length > 2 ? c[2].trim() : "",
+                                    c.length > 3 ? c[3].trim() : "—" ) );
             }
         }
         catch ( final Exception e )
